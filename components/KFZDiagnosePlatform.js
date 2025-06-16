@@ -12,10 +12,12 @@ const KFZDiagnosePlatform = () => {
   const [results, setResults] = useState(null);
   const [selectedAI, setSelectedAI] = useState('claude');
   const [error, setError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   const analyzeWithAI = async (aiModel) => {
     setLoading(true);
     setError(null);
+    setDebugInfo(null);
     
     try {
       const response = await fetch('/api/analyze', {
@@ -36,6 +38,13 @@ const KFZDiagnosePlatform = () => {
 
       const data = await response.json();
       setResults(data.analysis);
+      setDebugInfo({
+        mode: data.mode,
+        debug: data.debug,
+        error: data.error,
+        timestamp: data.timestamp,
+        modelUsed: data.modelUsed
+      });
     } catch (err) {
       setError('Fehler bei der KI-Analyse. Bitte versuchen Sie es erneut.');
       console.error('Analysis error:', err);
@@ -47,6 +56,25 @@ const KFZDiagnosePlatform = () => {
   const handleSubmit = async () => {
     if (!problem.trim()) return;
     await analyzeWithAI(selectedAI);
+  };
+
+  // Bestimme die Farbe basierend auf dem Modus
+  const getModeColor = (mode) => {
+    if (mode && mode.includes('demo')) return '#f59e0b'; // Gelb für Demo
+    if (mode === 'claude' || mode === 'openai') return '#16a34a'; // Grün für echte API
+    if (mode === 'claude-fallback' || mode === 'openai-fallback') return '#0891b2'; // Blau für Fallback
+    return '#6b7280'; // Grau für unbekannt
+  };
+
+  const getModeText = (mode) => {
+    if (!mode) return 'Unbekannt';
+    if (mode === 'claude') return '✅ Echte Claude API';
+    if (mode === 'openai') return '✅ Echte OpenAI API';
+    if (mode === 'claude-fallback') return '⚠️ Claude API (Fallback)';
+    if (mode === 'openai-fallback') return '⚠️ OpenAI API (Fallback)';
+    if (mode.includes('demo')) return '⚠️ Demo-Modus';
+    if (mode.includes('error')) return '❌ API-Fehler';
+    return mode;
   };
 
   const styles = {
@@ -137,10 +165,6 @@ const KFZDiagnosePlatform = () => {
       outline: 'none',
       transition: 'all 0.2s'
     },
-    inputFocus: {
-      borderColor: '#2563eb',
-      boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.1)'
-    },
     textarea: {
       width: '100%',
       padding: '0.75rem',
@@ -205,6 +229,26 @@ const KFZDiagnosePlatform = () => {
       alignItems: 'center',
       gap: '0.5rem',
       marginBottom: '1rem'
+    },
+    debugInfo: {
+      background: '#f9fafb',
+      border: '1px solid #e5e7eb',
+      borderRadius: '8px',
+      padding: '1rem',
+      marginBottom: '1rem',
+      fontSize: '0.875rem'
+    },
+    debugTitle: {
+      fontWeight: '600',
+      marginBottom: '0.5rem',
+      color: '#374151'
+    },
+    modeIndicator: {
+      padding: '0.25rem 0.75rem',
+      borderRadius: '20px',
+      fontSize: '0.875rem',
+      fontWeight: '500',
+      marginLeft: '0.5rem'
     },
     resultsCard: {
       background: 'white',
@@ -287,29 +331,6 @@ const KFZDiagnosePlatform = () => {
       borderRadius: '8px',
       padding: '1rem',
       color: '#dc2626'
-    },
-    featuresGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-      gap: '1.5rem',
-      marginTop: '3rem'
-    },
-    featureCard: {
-      background: 'white',
-      borderRadius: '12px',
-      padding: '1.5rem',
-      border: '1px solid #f3f4f6',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-    },
-    featureIcon: {
-      width: '48px',
-      height: '48px',
-      borderRadius: '12px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: '1rem',
-      fontSize: '1.5rem'
     },
     placeholderCard: {
       background: 'white',
@@ -475,6 +496,40 @@ const KFZDiagnosePlatform = () => {
                   </span>
                 </div>
 
+                {/* Debug-Informationen */}
+                {debugInfo && (
+                  <div style={styles.debugInfo}>
+                    <div style={styles.debugTitle}>🔧 System-Status</div>
+                    <div style={{display: 'flex', alignItems: 'center', marginBottom: '0.5rem'}}>
+                      <span>Status:</span>
+                      <span style={{
+                        ...styles.modeIndicator,
+                        background: getModeColor(debugInfo.mode),
+                        color: 'white'
+                      }}>
+                        {getModeText(debugInfo.mode)}
+                      </span>
+                    </div>
+                    {debugInfo.debug && (
+                      <div style={{fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem'}}>
+                        Claude API: {debugInfo.debug.hasClaudeKey ? '✅' : '❌'} | 
+                        OpenAI API: {debugInfo.debug.hasOpenAIKey ? '✅' : '❌'} | 
+                        Umgebung: {debugInfo.debug.environment}
+                        {debugInfo.modelUsed && (
+                          <div style={{marginTop: '0.25rem'}}>
+                            Verwendetes Modell: <strong>{debugInfo.modelUsed}</strong>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {debugInfo.error && (
+                      <div style={{color: '#dc2626', fontSize: '0.75rem', marginTop: '0.5rem'}}>
+                        Fehler: {debugInfo.error}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Vertrauenswert */}
                 <div style={styles.confidenceContainer}>
                   <div style={{
@@ -553,37 +608,6 @@ const KFZDiagnosePlatform = () => {
                 </p>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Features */}
-        <div style={styles.featuresGrid}>
-          <div style={styles.featureCard}>
-            <div style={{...styles.featureIcon, background: '#dbeafe', color: '#2563eb'}}>🤖</div>
-            <h3 style={{fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem'}}>
-              Dual-KI Analyse
-            </h3>
-            <p style={{color: '#6b7280'}}>
-              Wählen Sie zwischen Claude 4 und ChatGPT für die beste Diagnose
-            </p>
-          </div>
-          <div style={styles.featureCard}>
-            <div style={{...styles.featureIcon, background: '#dcfce7', color: '#16a34a'}}>✅</div>
-            <h3 style={{fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem'}}>
-              Präzise Ergebnisse
-            </h3>
-            <p style={{color: '#6b7280'}}>
-              Detaillierte Diagnose mit Wahrscheinlichkeiten und Kostenangaben
-            </p>
-          </div>
-          <div style={styles.featureCard}>
-            <div style={{...styles.featureIcon, background: '#f3e8ff', color: '#7c3aed'}}>🔧</div>
-            <h3 style={{fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.5rem'}}>
-              Handlungsempfehlungen
-            </h3>
-            <p style={{color: '#6b7280'}}>
-              Konkrete Schritte zur Problemlösung und Reparatur
-            </p>
           </div>
         </div>
       </main>

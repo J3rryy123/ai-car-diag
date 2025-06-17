@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ENHANCED_VIN_DECODER from '../utils/vinDecoder';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
@@ -19,9 +19,142 @@ const KFZDiagnosePlatform = () => {
   const [error, setError] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
   
-  // Historie-State
+  // Historie-State mit Server-Sync
   const [searchHistory, setSearchHistory] = useState([]);
   const [activeTab, setActiveTab] = useState('diagnose');
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historySaving, setHistorySaving] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+
+  // Historie vom Server laden
+  const loadHistoryFromServer = useCallback(async () => {
+    try {
+      setHistoryLoading(true);
+      setHistoryError(null);
+      
+      const response = await fetch('/api/history', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSearchHistory(data.history || []);
+        setLastSyncTime(new Date().toISOString());
+        console.log(`Historie geladen: ${data.count} Einträge für User ${data.userId}`);
+      } else {
+        throw new Error(`Server-Fehler: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Fehler beim Laden der Historie:', error);
+      setHistoryError('Historie konnte nicht geladen werden. Lokale Sitzung wird verwendet.');
+      
+      // Fallback: Versuche lokale Historie zu laden (falls verfügbar)
+      try {
+        const localHistory = localStorage.getItem('kfz-diagnose-history');
+        if (localHistory) {
+          setSearchHistory(JSON.parse(localHistory));
+        }
+      } catch (localError) {
+        console.error('Lokale Historie nicht verfügbar:', localError);
+      }
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  // Historie auf Server speichern
+  const saveHistoryToServer = useCallback(async (historyToSave) => {
+    try {
+      setHistorySaving(true);
+      
+      const response = await fetch('/api/history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          history: historyToSave
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLastSyncTime(new Date().toISOString());
+        console.log(`Historie gespeichert: ${data.count} Einträge`);
+        
+        // Backup lokal speichern
+        try {
+          localStorage.setItem('kfz-diagnose-history', JSON.stringify(historyToSave));
+        } catch (localError) {
+          console.log('Lokaler Backup-Speicher nicht verfügbar');
+        }
+        
+        return true;
+      } else {
+        throw new Error(`Server-Fehler: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Fehler beim Speichern der Historie:', error);
+      setHistoryError('Historie konnte nicht gespeichert werden.');
+      
+      // Fallback: Lokal speichern
+      try {
+        localStorage.setItem('kfz-diagnose-history', JSON.stringify(historyToSave));
+        console.log('Historie lokal gespeichert (Fallback)');
+      } catch (localError) {
+        console.error('Auch lokales Speichern fehlgeschlagen:', localError);
+      }
+      
+      return false;
+    } finally {
+      setHistorySaving(false);
+    }
+  }, []);
+
+  // Historie komplett löschen (Server + Lokal)
+  const clearHistoryComplete = useCallback(async () => {
+    try {
+      setHistorySaving(true);
+      
+      // Vom Server löschen
+      const response = await fetch('/api/history', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        console.log('Server-Historie gelöscht');
+      }
+      
+      // Lokal löschen
+      try {
+        localStorage.removeItem('kfz-diagnose-history');
+      } catch (localError) {
+        console.log('Lokale Historie bereits leer');
+      }
+      
+      // State aktualisieren
+      setSearchHistory([]);
+      setLastSyncTime(new Date().toISOString());
+      
+    } catch (error) {
+      console.error('Fehler beim Löschen der Historie:', error);
+      setHistoryError('Historie konnte nicht vollständig gelöscht werden.');
+    } finally {
+      setHistorySaving(false);
+    }
+  }, []);
+
+  // Komponente initialisieren
+  useEffect(() => {
+    loadHistoryFromServer();
+  }, [loadHistoryFromServer]);
 
   // VIN-Dekodierung
   const handleVinChange = (inputVin) => {
@@ -81,7 +214,7 @@ const KFZDiagnosePlatform = () => {
         modelUsed: data.modelUsed
       });
 
-      // Historie aktualisieren
+      // Neuen Historie-Eintrag erstellen
       const historyEntry = {
         id: Date.now(),
         timestamp: new Date().toISOString(),
@@ -97,7 +230,12 @@ const KFZDiagnosePlatform = () => {
         }
       };
 
-      setSearchHistory(prev => [historyEntry, ...prev.slice(0, 9)]);
+      // Historie aktualisieren
+      const updatedHistory = [historyEntry, ...searchHistory.slice(0, 49)]; // Max 50 Einträge
+      setSearchHistory(updatedHistory);
+      
+      // Auf Server speichern (asynchron)
+      saveHistoryToServer(updatedHistory);
 
     } catch (err) {
       setError('Fehler bei der KI-Analyse. Bitte versuchen Sie es erneut.');
@@ -123,12 +261,21 @@ const KFZDiagnosePlatform = () => {
     setActiveTab('diagnose');
   };
 
-  const clearHistory = () => {
-    setSearchHistory([]);
+  const clearHistory = async () => {
+    if (window.confirm('Möchten Sie wirklich die gesamte Historie löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+      await clearHistoryComplete();
+    }
   };
 
-  const deleteHistoryItem = (id) => {
-    setSearchHistory(prev => prev.filter(item => item.id !== id));
+  const deleteHistoryItem = async (id) => {
+    const updatedHistory = searchHistory.filter(item => item.id !== id);
+    setSearchHistory(updatedHistory);
+    await saveHistoryToServer(updatedHistory);
+  };
+
+  // Manuelle Synchronisation
+  const manualSync = async () => {
+    await loadHistoryFromServer();
   };
 
   // Utility functions
@@ -230,14 +377,6 @@ const KFZDiagnosePlatform = () => {
           </div>
         )}
 
-        {/* Motorspezifische Hinweise */}
-        {results.engineSpecific && (
-          <div className={styles.vehicleSpecific}>
-            <h4>🔧 Motorspezifische Hinweise:</h4>
-            <p>{results.engineSpecific}</p>
-          </div>
-        )}
-
         {/* Debug Information */}
         {debugInfo && (
           <details className={styles.debugInfo}>
@@ -263,7 +402,14 @@ const KFZDiagnosePlatform = () => {
             <div className={styles.headerIcon}>🚗</div>
             <div>
               <h1 className={styles.title}>KFZ-Diagnose Platform</h1>
-              <p className={styles.subtitle}>KI-gestützte Fahrzeugdiagnose mit erweiterter VIN-Erkennung</p>
+              <p className={styles.subtitle}>
+                KI-gestützte Fahrzeugdiagnose mit persistenter Historie
+                {lastSyncTime && (
+                  <span style={{fontSize: '0.8em', color: '#10b981'}}>
+                    {' '}• Sync: {formatDate(lastSyncTime)}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
           <nav className={styles.nav}>
@@ -276,14 +422,29 @@ const KFZDiagnosePlatform = () => {
             <button
               className={`${styles.navButton} ${activeTab === 'history' ? styles.navButtonActive : ''}`}
               onClick={() => setActiveTab('history')}
+              disabled={historyLoading}
             >
               📋 Historie ({searchHistory.length})
+              {historySaving && <span className={styles.spinner} style={{marginLeft: '0.5rem'}}></span>}
             </button>
           </nav>
         </div>
       </header>
 
       <main className={styles.main}>
+        {/* Error/Warning Messages */}
+        {historyError && (
+          <div className={styles.error}>
+            ⚠️ {historyError}
+            <button 
+              onClick={manualSync} 
+              style={{marginLeft: '1rem', background: 'none', border: '1px solid currentColor', borderRadius: '4px', padding: '0.25rem 0.5rem', color: 'inherit', cursor: 'pointer'}}
+            >
+              Erneut versuchen
+            </button>
+          </div>
+        )}
+
         {activeTab === 'diagnose' ? (
           <div className={styles.grid}>
             {/* Eingabebereich */}
@@ -543,22 +704,47 @@ const KFZDiagnosePlatform = () => {
           /* Historie-Tab */
           <div className={styles.card}>
             <div className={styles.historyItemHeader}>
-              <h2 className={styles.cardTitle}>📋 Diagnose-Historie</h2>
-              {searchHistory.length > 0 && (
+              <h2 className={styles.cardTitle}>
+                📋 Diagnose-Historie
+                {historyLoading && <span className={styles.spinner} style={{marginLeft: '1rem'}}></span>}
+              </h2>
+              <div style={{display: 'flex', gap: '0.5rem'}}>
                 <button 
-                  onClick={clearHistory}
-                  className={styles.deleteButton}
+                  onClick={manualSync}
+                  disabled={historyLoading || historySaving}
+                  style={{
+                    padding: '0.25rem 0.5rem',
+                    fontSize: '0.75rem',
+                    background: '#f3f4f6',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '4px',
+                    cursor: historyLoading || historySaving ? 'not-allowed' : 'pointer'
+                  }}
                 >
-                  Alle löschen
+                  🔄 Sync
                 </button>
-              )}
+                {searchHistory.length > 0 && (
+                  <button 
+                    onClick={clearHistory}
+                    disabled={historySaving}
+                    className={styles.deleteButton}
+                  >
+                    Alle löschen
+                  </button>
+                )}
+              </div>
             </div>
             
-            {searchHistory.length === 0 ? (
+            {historyLoading ? (
+              <div style={{textAlign: 'center', padding: '3rem', color: '#6b7280'}}>
+                <div className={styles.spinner} style={{margin: '0 auto 1rem'}}></div>
+                <p>Historie wird geladen...</p>
+              </div>
+            ) : searchHistory.length === 0 ? (
               <div className={styles.emptyState}>
                 <div style={{fontSize: '3rem', marginBottom: '1rem'}}>📋</div>
                 <h3>Keine Historie vorhanden</h3>
-                <p>Ihre durchgeführten Diagnosen werden hier angezeigt.</p>
+                <p>Ihre durchgeführten Diagnosen werden hier dauerhaft gespeichert.</p>
               </div>
             ) : (
               <div className={styles.historyContainer}>
@@ -572,19 +758,21 @@ const KFZDiagnosePlatform = () => {
                       <div className={styles.historyMetadata}>
                         {formatDate(item.timestamp)} | {item.aiModel === 'claude' ? '🤖 Claude' : '🤖 ChatGPT'}
                         {item.vinDecoded && ` | VIN: ${item.vinDecoded.make} ${item.vinDecoded.series || ''}`}
+                        {item.debugInfo?.mode && ` | ${getModeText(item.debugInfo.mode)}`}
                       </div>
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteHistoryItem(item.id);
                         }}
+                        disabled={historySaving}
                         className={styles.deleteButton}
                       >
                         Löschen
                       </button>
                     </div>
                     <div className={styles.historyProblem}>
-                      {item.problem.substring(0, 100)}...
+                      {item.problem.length > 100 ? `${item.problem.substring(0, 100)}...` : item.problem}
                     </div>
                     <div className={styles.historyCarDetails}>
                       {item.carDetails.make} {item.carDetails.model} ({item.carDetails.year})

@@ -28,10 +28,10 @@ export default async function handler(req, res) {
     let modelUsed = null;
 
     // Erweiterten Prompt mit VIN-Informationen erstellen
-    let vehicleInfo = `${carDetails.make} ${carDetails.model} ${carDetails.year}, ${carDetails.mileage}km`;
-    if (vin) {
-      vehicleInfo += ` (VIN: ${vin})`;
-    }
+    let vehicleInfo = `${carDetails.make} ${carDetails.model} ${carDetails.year}`;
+if (carDetails.engineType) {
+  vehicleInfo += `, Motor: ${carDetails.engineType}`;
+      }
 
     const prompt = `Analysiere folgendes KFZ-Problem als Experte:
 

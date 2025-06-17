@@ -1,0 +1,284 @@
+[
+  {
+    "id": 1750158872597,
+    "timestamp": "2025-06-17T11:14:32.597Z",
+    "problem": "der motor mach bei kaltem start geräusche. wenn er ein paar minuten gelaufen ist läuft er normal",
+    "carDetails": {
+      "make": "Mercedes-Benz",
+      "model": "",
+      "year": "2011",
+      "engineType": "M651"
+    },
+    "vin": "WDC2049821F814734",
+    "vinDecoded": {
+      "vin": "WDC2049821F814734",
+      "isValid": true,
+      "segments": {
+        "wmi": "WDC",
+        "vds": "204982",
+        "yearCode": "1",
+        "plantCode": "F",
+        "serialNumber": "814734"
+      },
+      "make": "Mercedes-Benz",
+      "country": "Deutschland",
+      "vehicleType": "Sprinter/Nutzfahrzeug",
+      "series": null,
+      "generation": null,
+      "productionYears": null,
+      "year": 2011,
+      "vehicleAge": 14,
+      "isClassic": false,
+      "isModern": false,
+      "engine": "Unbekannt",
+      "displacement": "Unbekannt",
+      "fuel": "Unbekannt",
+      "power": "Unbekannt",
+      "cylinders": 0,
+      "turbo": false,
+      "assemblyPlant": "Werk Code: F",
+      "serialNumber": "814734",
+      "estimatedSpecs": {
+        "emissionStandard": "Euro 5",
+        "registrationRequired": true,
+        "nextInspection": "TÜV/AU alle 2 Jahre",
+        "commonIssues": [
+          "Verschleißteile (Bremsen, Fahrwerk) prüfen"
+        ]
+      },
+      "confidence": "Niedrig",
+      "debugYear": {
+        "yearCode": "1",
+        "standardYear": 2001,
+        "detectedYear": 2011,
+        "isMercedes": true,
+        "yearSource": "Mercedes-Spezial"
+      }
+    },
+    "aiModel": "claude",
+    "results": {
+      "diagnosis": "Basierend auf der VIN handelt es sich um einen Mercedes GLK (X204). Die beschriebenen Kaltstart-Geräusche deuten auf ein typisches Problem mit der Steuerkette bzw. dem Kettenspanner hin, das bei diesem Modell bekannt ist.",
+      "confidence": 90,
+      "possibleCauses": [
+        {
+          "cause": "Defekter Kettenspanner/verschlissene Steuerkette",
+          "probability": 75,
+          "cost": "800-1500€",
+          "commonFor": "Sehr häufiges Problem beim M271 Motor dieser Baureihe"
+        },
+        {
+          "cause": "Verschlissene Hydrostößel",
+          "probability": 15,
+          "cost": "400-600€",
+          "commonFor": "Bekanntes Problem bei höherer Laufleistung"
+        },
+        {
+          "cause": "Defekter Riemenspanner",
+          "probability": 10,
+          "cost": "200-300€",
+          "commonFor": "Gelegentlich bei diesem Modell"
+        }
+      ],
+      "nextSteps": [
+        "Motorgeräusch bei Kaltstart durch Fachmann diagnostizieren lassen",
+        "Steuerketten-Verschleiß mit spezieller Diagnose prüfen",
+        "Ölstand und Ölqualität kontrollieren",
+        "Vorsorglich Service-Historie auf regelmäßige Ölwechsel prüfen"
+      ],
+      "urgency": "Zeitnah überprüfen lassen. Bei Steuerkettenproblemen kann es zu schweren Motorschäden kommen, wenn das Problem ignoriert wird.",
+      "vehicleSpecific": "Der M271 Motor dieser Baureihe (2011) hatte bekannte Probleme mit der Steuerkette. Mercedes hat dafür teilweise Kulanzregelungen angeboten. Eine Überprüfung beim Mercedes-Händler ist empfehlenswert, um mögliche Kulanzansprüche zu prüfen."
+    },
+    "debugInfo": {
+      "mode": "claude",
+      "modelUsed": "claude-3-5-sonnet-20241022"
+    }
+  },
+  {
+    "id": 1750158849279,
+    "timestamp": "2025-06-17T11:14:09.279Z",
+    "problem": "der motor mach bei kaltem start geräusche. wenn er ein paar minuten gelaufen ist läuft er normal",
+    "carDetails": {
+      "make": "Mercedes-Benz",
+      "model": "",
+      "year": "2011",
+      "engineType": "M651"
+    },
+    "vin": "WDC2049821F814734",
+    "vinDecoded": {
+      "vin": "WDC2049821F814734",
+      "isValid": true,
+      "segments": {
+        "wmi": "WDC",
+        "vds": "204982",
+        "yearCode": "1",
+        "plantCode": "F",
+        "serialNumber": "814734"
+      },
+      "make": "Mercedes-Benz",
+      "country": "Deutschland",
+      "vehicleType": "Sprinter/Nutzfahrzeug",
+      "series": null,
+      "generation": null,
+      "productionYears": null,
+      "year": 2011,
+      "vehicleAge": 14,
+      "isClassic": false,
+      "isModern": false,
+      "engine": "Unbekannt",
+      "displacement": "Unbekannt",
+      "fuel": "Unbekannt",
+      "power": "Unbekannt",
+      "cylinders": 0,
+      "turbo": false,
+      "assemblyPlant": "Werk Code: F",
+      "serialNumber": "814734",
+      "estimatedSpecs": {
+        "emissionStandard": "Euro 5",
+        "registrationRequired": true,
+        "nextInspection": "TÜV/AU alle 2 Jahre",
+        "commonIssues": [
+          "Verschleißteile (Bremsen, Fahrwerk) prüfen"
+        ]
+      },
+      "confidence": "Niedrig",
+      "debugYear": {
+        "yearCode": "1",
+        "standardYear": 2001,
+        "detectedYear": 2011,
+        "isMercedes": true,
+        "yearSource": "Mercedes-Spezial"
+      }
+    },
+    "aiModel": "claude",
+    "results": {
+      "diagnosis": "Anhand der VIN handelt es sich um einen Mercedes-Benz GLK (X204) aus 2011. Die beschriebenen Kaltstartgeräusche deuten auf ein typisches Kettentrieb-Problem oder Hydrostößel-Verschleiß hin, was bei diesem Modell bekannt ist.",
+      "confidence": 85,
+      "possibleCauses": [
+        {
+          "cause": "Verschlissene Steuerkette/Kettenspanner",
+          "probability": 60,
+          "cost": "800-1500€",
+          "commonFor": "Sehr häufiges Problem bei Mercedes M271/M272 Motoren dieser Baujahre"
+        },
+        {
+          "cause": "Defekte Hydrostößel",
+          "probability": 25,
+          "cost": "400-800€",
+          "commonFor": "Typisches Problem bei älteren Mercedes Motoren"
+        },
+        {
+          "cause": "Niedriger Ölstand/falsche Ölviskosität",
+          "probability": 15,
+          "cost": "50-100€",
+          "commonFor": "Allgemeines Problem"
+        }
+      ],
+      "nextSteps": [
+        "Motorölstand und -qualität prüfen",
+        "Diagnose der Kettengeräusche im kalten Zustand durch Fachwerkstatt",
+        "Überprüfung des Kettenspanners mit Diagnosegerät",
+        "Gegebenenfalls Ölanalyse durchführen lassen"
+      ],
+      "urgency": "Mittelfristig zu beheben. Bei Kettenproblematik kann sich der Zustand schnell verschlechtern und zu schweren Motorschäden führen. Zeitnahe Überprüfung empfohlen.",
+      "vehicleSpecific": "Bei diesem Baujahr und Modell sind Probleme mit der Steuerkette dokumentiert. Mercedes-Benz hat für einige Fahrzeuge dieser Serie Kulanzregelungen angeboten. Überprüfung der Servicevergangenheit und möglicher Ansprüche beim Mercedes-Händler empfehlenswert."
+    },
+    "debugInfo": {
+      "mode": "claude",
+      "modelUsed": "claude-3-5-sonnet-20241022"
+    }
+  },
+  {
+    "id": 1750158803537,
+    "timestamp": "2025-06-17T11:13:23.537Z",
+    "problem": "der motor mach bei kaltem start geräusche. wenn er ein paar minuten gelaufen ist läuft er normal",
+    "carDetails": {
+      "make": "Mercedes-Benz",
+      "model": "",
+      "year": "2011",
+      "engineType": "Unbekannt"
+    },
+    "vin": "WDC2049821F814734",
+    "vinDecoded": {
+      "vin": "WDC2049821F814734",
+      "isValid": true,
+      "segments": {
+        "wmi": "WDC",
+        "vds": "204982",
+        "yearCode": "1",
+        "plantCode": "F",
+        "serialNumber": "814734"
+      },
+      "make": "Mercedes-Benz",
+      "country": "Deutschland",
+      "vehicleType": "Sprinter/Nutzfahrzeug",
+      "series": null,
+      "generation": null,
+      "productionYears": null,
+      "year": 2011,
+      "vehicleAge": 14,
+      "isClassic": false,
+      "isModern": false,
+      "engine": "Unbekannt",
+      "displacement": "Unbekannt",
+      "fuel": "Unbekannt",
+      "power": "Unbekannt",
+      "cylinders": 0,
+      "turbo": false,
+      "assemblyPlant": "Werk Code: F",
+      "serialNumber": "814734",
+      "estimatedSpecs": {
+        "emissionStandard": "Euro 5",
+        "registrationRequired": true,
+        "nextInspection": "TÜV/AU alle 2 Jahre",
+        "commonIssues": [
+          "Verschleißteile (Bremsen, Fahrwerk) prüfen"
+        ]
+      },
+      "confidence": "Niedrig",
+      "debugYear": {
+        "yearCode": "1",
+        "standardYear": 2001,
+        "detectedYear": 2011,
+        "isMercedes": true,
+        "yearSource": "Mercedes-Spezial"
+      }
+    },
+    "aiModel": "claude",
+    "results": {
+      "diagnosis": "Basierend auf der VIN handelt es sich um einen Mercedes-Benz GLK (X204) aus 2011. Die beschriebenen Kaltstartgeräusche deuten auf ein typisches Kettentrieb-Problem oder Hydrostößel-Verschleiß hin, was bei diesem Modell bekannt ist.",
+      "confidence": 85,
+      "possibleCauses": [
+        {
+          "cause": "Verschlissene Hydrostößel/Ventilspielausgleicher",
+          "probability": 60,
+          "cost": "600-1200€",
+          "commonFor": "Häufiges Problem bei Mercedes M271/M272 Motoren dieser Baujahre"
+        },
+        {
+          "cause": "Steuerkette/Kettenspanner defekt",
+          "probability": 25,
+          "cost": "1200-2000€",
+          "commonFor": "Bekanntes Problem bei GLK dieser Generation"
+        },
+        {
+          "cause": "Ölmangel/falsche Ölviskosität",
+          "probability": 15,
+          "cost": "100-200€",
+          "commonFor": "Allgemeines Problem"
+        }
+      ],
+      "nextSteps": [
+        "Motorölstand und -qualität prüfen",
+        "Diagnose der Geräuschquelle durch Werkstatt (kalt)",
+        "Überprüfung des Kettenspanners mit Diagnosegerät",
+        "Prüfung des Öldrucks im kalten Zustand"
+      ],
+      "urgency": "Mittelfristig zu beheben. Bei Kettenproblematik besteht die Gefahr eines Motorschadens. Zeitnaher Werkstattbesuch empfohlen.",
+      "vehicleSpecific": "Bei diesem Baujahr des GLK gab es mehrere dokumentierte Fälle von Steuerkettenproblemen. Mercedes hat für bestimmte Motorvarianten verlängerte Garantien auf den Kettentrieb angeboten. Überprüfung der Garantieabdeckung empfohlen."
+    },
+    "debugInfo": {
+      "mode": "claude",
+      "modelUsed": "claude-3-5-sonnet-20241022"
+    }
+  }
+]

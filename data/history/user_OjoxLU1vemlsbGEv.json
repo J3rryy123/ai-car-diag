@@ -1,0 +1,96 @@
+[
+  {
+    "id": 1750159643655,
+    "timestamp": "2025-06-17T11:27:23.655Z",
+    "problem": "Der Motor macht bei Kaltstart geräusche und ruckelt. sobald er ein paar minuten gelaufen ist läuft er normal. Es ist kein fehlercode hinterlegt",
+    "carDetails": {
+      "make": "Mercedes-Benz",
+      "model": "",
+      "year": "2011",
+      "engineType": "M651 Diesel"
+    },
+    "vin": "WDC2049821F814734",
+    "vinDecoded": {
+      "vin": "WDC2049821F814734",
+      "isValid": true,
+      "segments": {
+        "wmi": "WDC",
+        "vds": "204982",
+        "yearCode": "1",
+        "plantCode": "F",
+        "serialNumber": "814734"
+      },
+      "make": "Mercedes-Benz",
+      "country": "Deutschland",
+      "vehicleType": "Sprinter/Nutzfahrzeug",
+      "series": null,
+      "generation": null,
+      "productionYears": null,
+      "year": 2011,
+      "vehicleAge": 14,
+      "isClassic": false,
+      "isModern": false,
+      "engine": "Unbekannt",
+      "displacement": "Unbekannt",
+      "fuel": "Unbekannt",
+      "power": "Unbekannt",
+      "cylinders": 0,
+      "turbo": false,
+      "assemblyPlant": "Werk Code: F",
+      "serialNumber": "814734",
+      "estimatedSpecs": {
+        "emissionStandard": "Euro 5",
+        "registrationRequired": true,
+        "nextInspection": "TÜV/AU alle 2 Jahre",
+        "commonIssues": [
+          "Verschleißteile (Bremsen, Fahrwerk) prüfen"
+        ]
+      },
+      "confidence": "Niedrig",
+      "debugYear": {
+        "yearCode": "1",
+        "standardYear": 2001,
+        "detectedYear": 2011,
+        "isMercedes": true,
+        "yearSource": "Mercedes-Spezial"
+      }
+    },
+    "aiModel": "claude",
+    "results": {
+      "diagnosis": "Die Symptome deuten stark auf ein typisches Problem mit den Einspritzdüsen (Injektoren) beim M651 Motor hin. Das Ruckeln und die Geräusche beim Kaltstart, die sich nach Erwärmung normalisieren, sind charakteristisch für verschlissene oder verkokte Injektoren.",
+      "confidence": 90,
+      "possibleCauses": [
+        {
+          "cause": "Defekte/verschlissene Einspritzdüsen",
+          "probability": 75,
+          "cost": "800-1200€",
+          "commonFor": "Sehr häufiges Problem beim M651, besonders Baujahr 2011"
+        },
+        {
+          "cause": "Glühkerzen defekt",
+          "probability": 15,
+          "cost": "150-300€",
+          "commonFor": "Gelegentlich bei Dieselmotoren"
+        },
+        {
+          "cause": "Kraftstoffdruckregler",
+          "probability": 10,
+          "cost": "200-400€",
+          "commonFor": "Seltener beim M651"
+        }
+      ],
+      "nextSteps": [
+        "Diagnose der Einspritzung mit Prüfgerät durchführen",
+        "Rücklaufmengenprüfung der Injektoren",
+        "Glühkerzen auf Funktion prüfen",
+        "Kraftstoffdruck im Kaltzustand messen"
+      ],
+      "urgency": "Mittelfristig beheben. Kurzfristig keine Gefahr für den Motor, aber verschleppte Reparatur kann zu Folgeschäden und erhöhtem Kraftstoffverbrauch führen.",
+      "vehicleSpecific": "Der M651 Motor dieser Baureihe ist bekannt für Probleme mit den Piezo-Injektoren. Es gab mehrere technische Serviceaktionen von Mercedes-Benz zu diesem Thema. Prüfen Sie, ob für Ihr Fahrzeug noch offene Serviceaktionen vorliegen."
+    },
+    "debugInfo": {
+      "mode": "claude",
+      "modelUsed": "claude-3-5-sonnet-20241022"
+    }
+  }
+]

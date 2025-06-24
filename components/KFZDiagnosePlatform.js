@@ -1,8 +1,14 @@
-import React, { useState, useEffect } from 'react';
+// components/KFZDiagnosePlatform.js
+import React, { useState } from 'react';
 import ENHANCED_VIN_DECODER from '../utils/vinDecoder';
+import OBD2_DECODER from '../utils/obdDecoder';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
 const KFZDiagnosePlatform = () => {
+  // Tab Management
+  const [activeTab, setActiveTab] = useState('diagnose');
+  
+  // Diagnose Tab States
   const [problem, setProblem] = useState('');
   const [carDetails, setCarDetails] = useState({
     make: '',
@@ -12,24 +18,28 @@ const KFZDiagnosePlatform = () => {
   });
   const [vin, setVin] = useState('');
   const [vinDecoded, setVinDecoded] = useState(null);
-  const [showVinDetails, setShowVinDetails] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [selectedAI, setSelectedAI] = useState('claude');
+  
+  // OBD2 Tab States
+  const [obdVin, setObdVin] = useState('');
+  const [obdVinDecoded, setObdVinDecoded] = useState(null);
+  const [obdCode, setObdCode] = useState('');
+  const [obdCodeDecoded, setObdCodeDecoded] = useState(null);
+  const [obdResults, setObdResults] = useState(null);
+  
+  // Global States
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
-  
-  // Historie-State
-  const [searchHistory, setSearchHistory] = useState([]);
-  const [activeTab, setActiveTab] = useState('diagnose');
 
-  // VIN-Dekodierung
+  // VIN Dekodierung für Diagnose Tab
   const handleVinChange = (inputVin) => {
     setVin(inputVin);
     if (inputVin.length >= 17) {
       const decoded = ENHANCED_VIN_DECODER.decodeVIN(inputVin);
+      setVinDecoded(decoded);
       if (decoded && decoded.isValid) {
-        setVinDecoded(decoded);
         setCarDetails(prev => ({
           ...prev,
           make: decoded.make !== 'Unbekannt' ? decoded.make : prev.make,
@@ -37,24 +47,53 @@ const KFZDiagnosePlatform = () => {
           year: decoded.year !== 'Unbekannt' ? decoded.year.toString() : prev.year,
           engineType: decoded.engine || prev.engineType
         }));
-      } else {
-        setVinDecoded(decoded);
       }
     } else {
       setVinDecoded(null);
     }
   };
 
-  const analyzeWithAI = async (aiModel) => {
+  // VIN Dekodierung für OBD2 Tab
+  const handleObdVinChange = (inputVin) => {
+    setObdVin(inputVin);
+    if (inputVin.length >= 17) {
+      const decoded = ENHANCED_VIN_DECODER.decodeVIN(inputVin);
+      setObdVinDecoded(decoded);
+    } else {
+      setObdVinDecoded(null);
+    }
+  };
+
+  // OBD2 Code Dekodierung
+  const handleObdCodeChange = (inputCode) => {
+    const cleanCode = inputCode.trim().toUpperCase();
+    setObdCode(cleanCode);
+    
+    if (cleanCode.length >= 4) {
+      try {
+        const decoded = OBD2_DECODER.decodeCode(cleanCode);
+        setObdCodeDecoded(decoded);
+      } catch (error) {
+        console.error('Fehler beim Dekodieren des OBD2-Codes:', error);
+        setObdCodeDecoded(null);
+      }
+    } else {
+      setObdCodeDecoded(null);
+    }
+  };
+
+  // Diagnose-Analyse
+  const analyzeWithAI = async () => {
     setLoading(true);
     setError(null);
     setDebugInfo(null);
     
     try {
       const requestData = {
+        type: 'diagnose',
         problem,
         carDetails,
-        aiModel,
+        aiModel: selectedAI,
         vin: vin || null,
         vinDecoded: vinDecoded || null
       };
@@ -81,24 +120,6 @@ const KFZDiagnosePlatform = () => {
         modelUsed: data.modelUsed
       });
 
-      // Historie aktualisieren
-      const historyEntry = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        problem: problem,
-        carDetails: { ...carDetails },
-        vin: vin,
-        vinDecoded: vinDecoded,
-        aiModel: aiModel,
-        results: data.analysis,
-        debugInfo: {
-          mode: data.mode,
-          modelUsed: data.modelUsed
-        }
-      };
-
-      setSearchHistory(prev => [historyEntry, ...prev.slice(0, 9)]);
-
     } catch (err) {
       setError('Fehler bei der KI-Analyse. Bitte versuchen Sie es erneut.');
       console.error('Analysis error:', err);
@@ -107,31 +128,65 @@ const KFZDiagnosePlatform = () => {
     }
   };
 
-  const handleSubmit = async () => {
-    if (!problem.trim()) return;
-    await analyzeWithAI(selectedAI);
+  // OBD2 Analyse
+  const analyzeOBD2 = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      if (!obdCode.trim()) {
+        throw new Error('Bitte geben Sie einen OBD2-Code ein');
+      }
+      
+      if (obdCode.length < 4) {
+        throw new Error('OBD2-Code muss mindestens 4 Zeichen lang sein');
+      }
+      
+      if (!obdCodeDecoded) {
+        throw new Error('Unbekannter oder ungültiger OBD2-Code');
+      }
+      
+      const requestData = {
+        type: 'obd2',
+        obdCode: obdCode.toUpperCase(),
+        obdVin: obdVin || null,
+        obdVinDecoded: obdVinDecoded || null,
+        codeInfo: obdCodeDecoded,
+        aiModel: selectedAI  // AI-Modell für OBD2 hinzufügen
+      };
+
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Fehler bei der OBD2-Analyse');
+      }
+
+      const data = await response.json();
+      setObdResults(data.analysis);
+      
+      // Debug-Informationen auch für OBD2 setzen
+      setDebugInfo({
+        mode: data.mode,
+        debug: data.debug,
+        error: data.error,
+        timestamp: data.timestamp,
+        modelUsed: data.modelUsed
+      });
+
+    } catch (err) {
+      setError(err.message || 'Fehler bei der OBD2-Analyse. Bitte versuchen Sie es erneut.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const loadHistoryItem = (historyItem) => {
-    setProblem(historyItem.problem);
-    setCarDetails(historyItem.carDetails);
-    setVin(historyItem.vin || '');
-    setVinDecoded(historyItem.vinDecoded || null);
-    setSelectedAI(historyItem.aiModel);
-    setResults(historyItem.results);
-    setDebugInfo(historyItem.debugInfo);
-    setActiveTab('diagnose');
-  };
-
-  const clearHistory = () => {
-    setSearchHistory([]);
-  };
-
-  const deleteHistoryItem = (id) => {
-    setSearchHistory(prev => prev.filter(item => item.id !== id));
-  };
-
-  // Utility functions
+  // Utility Functions
   const getModeColor = (mode) => {
     if (mode && mode.includes('demo')) return '#f59e0b';
     if (mode === 'claude' || mode === 'openai') return '#16a34a';
@@ -143,24 +198,18 @@ const KFZDiagnosePlatform = () => {
     if (!mode) return 'Unbekannt';
     if (mode === 'claude') return '✅ Echte Claude API';
     if (mode === 'openai') return '✅ Echte OpenAI API';
+    if (mode === 'claude-obd2') return '✅ Claude OBD2-Analyse';
+    if (mode === 'openai-obd2') return '✅ OpenAI OBD2-Analyse';
     if (mode === 'claude-fallback') return '⚠️ Claude API (Fallback)';
     if (mode === 'openai-fallback') return '⚠️ OpenAI API (Fallback)';
+    if (mode === 'claude-obd2-fallback') return '⚠️ Claude OBD2 (Fallback)';
+    if (mode === 'openai-obd2-fallback') return '⚠️ OpenAI OBD2 (Fallback)';
     if (mode.includes('demo')) return '⚠️ Demo-Modus';
     if (mode.includes('error')) return '❌ API-Fehler';
     return mode;
   };
 
-  const formatDate = (isoString) => {
-    const date = new Date(isoString);
-    return date.toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
+  // Render Diagnose Results
   const renderDiagnosisResults = () => {
     if (!results) return null;
 
@@ -169,47 +218,53 @@ const KFZDiagnosePlatform = () => {
         <div className={styles.resultsHeader}>
           <h2 className={styles.cardTitle}>✅ Diagnose-Ergebnis</h2>
           <span className={`${styles.aiModelBadge} ${selectedAI === 'claude' ? styles.claudeBadge : styles.chatgptBadge}`}>
-            {selectedAI === 'claude' ? 'Claude 4' : 'ChatGPT'}
+            {selectedAI === 'claude' ? '🤖 Claude' : '🤖 ChatGPT'}
           </span>
         </div>
-
-        {/* Diagnose Text */}
-        <div className={styles.diagnosisText}>
-          {results.diagnosis}
+        
+        <div className={styles.diagnosisSection}>
+          <p>{results.diagnosis}</p>
+          <div className={styles.confidenceScore}>
+            <strong>Vertrauen:</strong> {results.confidence}%
+          </div>
         </div>
 
-        {/* Mögliche Ursachen */}
-        {results.possibleCauses && results.possibleCauses.length > 0 && (
-          <div className={styles.possibleCauses}>
-            <h3>🔍 Mögliche Ursachen</h3>
-            {results.possibleCauses.map((cause, index) => (
-              <div key={index} className={styles.causeItem}>
-                <div className={styles.causeName}>{cause.cause}</div>
-                <div className={styles.causeDetails}>
-                  <span>Wahrscheinlichkeit: {cause.probability}%</span>
-                  <span>Kosten: {cause.cost}</span>
-                  <span>{cause.commonFor}</span>
+        {results.possibleCauses && (
+          <div className={styles.section}>
+            <h4>🔍 Mögliche Ursachen:</h4>
+            <div className={styles.causesGrid}>
+              {results.possibleCauses.map((cause, index) => (
+                <div key={index} className={styles.causeCard}>
+                  <div className={styles.causeHeader}>
+                    <strong>{cause.cause}</strong>
+                    <span className={`${styles.probabilityBadge} ${
+                      cause.probability > 50 ? styles.high : 
+                      cause.probability > 30 ? styles.medium : styles.low
+                    }`}>
+                      {cause.probability}%
+                    </span>
+                  </div>
+                  <div className={styles.causeMeta}>
+                    <span>💰 {cause.cost}</span>
+                    <span>📋 {cause.commonFor}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Nächste Schritte */}
-        {results.nextSteps && results.nextSteps.length > 0 && (
-          <div className={styles.nextSteps}>
-            <h3>📋 Empfohlene Schritte</h3>
-            <ul className={styles.stepsList}>
-              {results.nextSteps.map((step, index) => (
-                <li key={index} className={styles.stepItem}>
-                  {index + 1}. {step}
-                </li>
               ))}
-            </ul>
+            </div>
           </div>
         )}
 
-        {/* Dringlichkeit */}
+        {results.nextSteps && (
+          <div className={styles.section}>
+            <h4>📋 Empfohlene Schritte:</h4>
+            <ol>
+              {results.nextSteps.map((step, index) => (
+                <li key={index}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        )}
+
         {results.urgency && (
           <div className={`${styles.urgencySection} ${
             results.urgency.toLowerCase().includes('hoch') || results.urgency.toLowerCase().includes('sofort') 
@@ -222,7 +277,6 @@ const KFZDiagnosePlatform = () => {
           </div>
         )}
 
-        {/* Fahrzeugspezifische Hinweise */}
         {results.vehicleSpecific && (
           <div className={styles.vehicleSpecific}>
             <h4>🚗 Fahrzeugspezifische Hinweise:</h4>
@@ -230,15 +284,95 @@ const KFZDiagnosePlatform = () => {
           </div>
         )}
 
-        {/* Motorspezifische Hinweise */}
-        {results.engineSpecific && (
-          <div className={styles.vehicleSpecific}>
-            <h4>🔧 Motorspezifische Hinweise:</h4>
-            <p>{results.engineSpecific}</p>
+        {debugInfo && (
+          <details className={styles.debugInfo}>
+            <summary>🔧 Debug Information</summary>
+            <div>
+              <strong>Modus:</strong> {getModeText(debugInfo.mode)}
+              {debugInfo.modelUsed && <><br/><strong>Modell:</strong> {debugInfo.modelUsed}</>}
+              <br/><strong>Zeitstempel:</strong> {debugInfo.timestamp}
+              {debugInfo.error && <><br/><strong>Fehler:</strong> {debugInfo.error}</>}
+            </div>
+          </details>
+        )}
+      </div>
+    );
+  };
+
+  // Render OBD2 Results
+  const renderOBD2Results = () => {
+    if (!obdResults) return null;
+
+    return (
+      <div className={styles.resultsCard}>
+        <h3 className={styles.cardTitle}>🔧 OBD2-Diagnose Ergebnis</h3>
+        
+        <div className={styles.diagnosisSection}>
+          <div className={styles.codeInfo}>
+            <div><strong>Code:</strong> {obdCode.toUpperCase()}</div>
+            <div><strong>Kategorie:</strong> {obdResults.category}</div>
+            {obdCodeDecoded && (
+              <div><strong>Beschreibung:</strong> {obdCodeDecoded.description}</div>
+            )}
+          </div>
+          <p>{obdResults.diagnosis}</p>
+        </div>
+
+        {obdResults.symptoms && (
+          <div className={styles.section}>
+            <h4>🚨 Typische Symptome:</h4>
+            <ul>
+              {obdResults.symptoms.map((symptom, index) => (
+                <li key={index}>{symptom}</li>
+              ))}
+            </ul>
           </div>
         )}
 
-        {/* Debug Information */}
+        {obdResults.possibleCauses && (
+          <div className={styles.section}>
+            <h4>🔍 Mögliche Ursachen:</h4>
+            <div className={styles.causesGrid}>
+              {obdResults.possibleCauses.map((cause, index) => (
+                <div key={index} className={styles.causeCard}>
+                  <div className={styles.causeHeader}>
+                    <strong>{cause.cause}</strong>
+                    <span className={`${styles.probabilityBadge} ${
+                      cause.probability > 50 ? styles.high : 
+                      cause.probability > 30 ? styles.medium : styles.low
+                    }`}>
+                      {cause.probability}%
+                    </span>
+                  </div>
+                  <div className={styles.causeMeta}>
+                    <span>💰 {cause.cost}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {obdResults.nextSteps && (
+          <div className={styles.section}>
+            <h4>📋 Empfohlene Schritte:</h4>
+            <ol>
+              {obdResults.nextSteps.map((step, index) => (
+                <li key={index}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {obdResults.urgency && (
+          <div className={`${styles.urgencySection} ${
+            obdResults.urgency.includes('HOCH') ? styles.urgencyHigh : 
+            obdResults.urgency.includes('MITTEL') ? styles.urgencyMedium : styles.urgencyLow
+          }`}>
+            <strong>⚠️ Dringlichkeit:</strong> {obdResults.urgency}
+          </div>
+        )}
+
         {debugInfo && (
           <details className={styles.debugInfo}>
             <summary>🔧 Debug Information</summary>
@@ -263,7 +397,9 @@ const KFZDiagnosePlatform = () => {
             <div className={styles.headerIcon}>🚗</div>
             <div>
               <h1 className={styles.title}>KFZ-Diagnose Platform</h1>
-              <p className={styles.subtitle}>KI-gestützte Fahrzeugdiagnose mit erweiterter VIN-Erkennung</p>
+              <p className={styles.subtitle}>
+                KI-gestützte Fahrzeugdiagnose mit OBD2-Unterstützung
+              </p>
             </div>
           </div>
           <nav className={styles.nav}>
@@ -274,26 +410,31 @@ const KFZDiagnosePlatform = () => {
               🔍 Diagnose
             </button>
             <button
-              className={`${styles.navButton} ${activeTab === 'history' ? styles.navButtonActive : ''}`}
-              onClick={() => setActiveTab('history')}
+              className={`${styles.navButton} ${activeTab === 'obd2' ? styles.navButtonActive : ''}`}
+              onClick={() => setActiveTab('obd2')}
             >
-              📋 Historie ({searchHistory.length})
+              🔧 OBD2-Diagnose
             </button>
           </nav>
         </div>
       </header>
 
       <main className={styles.main}>
-        {activeTab === 'diagnose' ? (
+        {/* Error Messages */}
+        {error && (
+          <div className={styles.error}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {/* Diagnose Tab */}
+        {activeTab === 'diagnose' && (
           <div className={styles.grid}>
-            {/* Eingabebereich */}
             <div>
               <div className={styles.card}>
-                <h2 className={styles.cardTitle}>
-                  🔍 Problem beschreiben
-                </h2>
+                <h2 className={styles.cardTitle}>🔍 Problem beschreiben</h2>
 
-                {/* Enhanced VIN-Eingabe */}
+                {/* VIN Eingabe */}
                 <div className={styles.formGroup}>
                   <label className={styles.label}>
                     Fahrzeug-Identifikationsnummer (VIN) - Optional
@@ -316,176 +457,133 @@ const KFZDiagnosePlatform = () => {
                       vinDecoded.isValid ? styles.vinInfoValid : styles.vinInfoInvalid
                     }`}>
                       {vinDecoded.isValid ? (
-                        <>
-                          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                            <div>
-                              <strong>✅ VIN gültig</strong> - {vinDecoded.make} ({vinDecoded.country})
-                              {vinDecoded.year !== 'Unbekannt' && `, Baujahr: ${vinDecoded.year}`}
-                              {vinDecoded.series && ` | ${vinDecoded.series}`}
-                              {vinDecoded.generation && ` (${vinDecoded.generation})`}
-                            </div>
-                            <button 
-                              className={styles.detailsButton}
-                              onClick={() => setShowVinDetails(!showVinDetails)}
-                            >
-                              {showVinDetails ? 'Weniger' : 'Details'}
-                            </button>
-                          </div>
-                          
-                          {vinDecoded.vehicleAge && (
-                            <div style={{marginTop: '0.5rem', color: '#6b7280'}}>
-                              Fahrzeugalter: {vinDecoded.vehicleAge} Jahre
-                              {vinDecoded.isClassic && ' (Oldtimer)'}
-                              {vinDecoded.isModern && ' (Neufahrzeug)'}
-                              {vinDecoded.estimatedSpecs?.serviceInterval && ` | Service: ${vinDecoded.estimatedSpecs.serviceInterval}`}
-                            </div>
-                          )}
-                          
-                          {showVinDetails && (
-                            <div className={styles.detailsPanel}>
-                              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem'}}>
-                                <div>
-                                  <strong>Grunddaten:</strong><br/>
-                                  Hersteller: {vinDecoded.make}<br/>
-                                  Land: {vinDecoded.country}<br/>
-                                  Typ: {vinDecoded.vehicleType}<br/>
-                                  {vinDecoded.series && `Serie: ${vinDecoded.series}`}<br/>
-                                  {vinDecoded.generation && `Generation: ${vinDecoded.generation}`}
-                                </div>
-                                
-                                <div>
-                                  <strong>Produktion:</strong><br/>
-                                  Jahr: {vinDecoded.year}<br/>
-                                  Werk: {vinDecoded.assemblyPlant}<br/>
-                                  {vinDecoded.productionYears && `Zeitraum: ${vinDecoded.productionYears}`}<br/>
-                                  Vertrauen: {vinDecoded.confidence}
-                                </div>
-                                
-                                {vinDecoded.estimatedSpecs && (
-                                  <div>
-                                    <strong>Technische Daten:</strong><br/>
-                                    Emission: {vinDecoded.estimatedSpecs.emissionStandard}<br/>
-                                    {vinDecoded.estimatedSpecs.serviceInterval && `Service: ${vinDecoded.estimatedSpecs.serviceInterval}`}<br/>
-                                    {vinDecoded.estimatedSpecs.commonIssues && (
-                                      <>
-                                        <br/><strong>Bekannte Probleme:</strong><br/>
-                                        <ul style={{margin: '0.25rem 0', paddingLeft: '1rem', fontSize: '0.8rem'}}>
-                                          {vinDecoded.estimatedSpecs.commonIssues.map((issue, i) => (
-                                            <li key={i}>{issue}</li>
-                                          ))}
-                                        </ul>
-                                      </>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </>
+                        <div>
+                          <div><strong>Hersteller:</strong> {vinDecoded.make}</div>
+                          <div><strong>Serie:</strong> {vinDecoded.series}</div>
+                          <div><strong>Jahr:</strong> {vinDecoded.year}</div>
+                          <div><strong>Land:</strong> {vinDecoded.country}</div>
+                        </div>
                       ) : (
-                        <>
-                          <strong>❌ Ungültige VIN</strong>
-                          <div style={{marginTop: '0.5rem'}}>
-                            {vinDecoded.error || 'Bitte 17 Zeichen eingeben (keine I, O, Q)'}
-                          </div>
-                        </>
+                        <div style={{color: '#dc2626'}}>
+                          ❌ {vinDecoded.error}
+                        </div>
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* Fahrzeugdaten */}
-                <div className={styles.formGroup}>
-                  <div className={styles.formGrid}>
-                    <div>
-                      <label className={styles.label}>Marke</label>
-                      <input
-                        type="text"
-                        value={carDetails.make}
-                        onChange={(e) => setCarDetails({...carDetails, make: e.target.value})}
-                        className={styles.input}
-                        placeholder="z.B. BMW"
-                      />
-                    </div>
-                    <div>
-                      <label className={styles.label}>Modell</label>
-                      <input
-                        type="text"
-                        value={carDetails.model}
-                        onChange={(e) => setCarDetails({...carDetails, model: e.target.value})}
-                        className={styles.input}
-                        placeholder="z.B. 3er"
-                      />
-                    </div>
-                    <div>
-                      <label className={styles.label}>Baujahr</label>
-                      <input
-                        type="number"
-                        value={carDetails.year}
-                        onChange={(e) => setCarDetails({...carDetails, year: e.target.value})}
-                        className={styles.input}
-                        placeholder="2020"
-                      />
-                    </div>
-                    <div>
-                      <label className={styles.label}>Motortyp</label>
-                      <input
-                        type="text"
-                        value={carDetails.engineType}
-                        onChange={(e) => setCarDetails({...carDetails, engineType: e.target.value})}
-                        className={styles.input}
-                        placeholder="z.B. 2.0 TDI, 1.8 TSI, 320d"
-                        list="engineTypes"
-                      />
-                      <datalist id="engineTypes">
-                        <option value="1.0 TSI" />
-                        <option value="1.2 TSI" />
-                        <option value="1.4 TSI" />
-                        <option value="1.5 TSI" />
-                        <option value="1.6 TDI" />
-                        <option value="1.8 TSI" />
-                        <option value="2.0 TSI" />
-                        <option value="2.0 TDI" />
-                        <option value="2.0 TFSI" />
-                        <option value="3.0 TDI" />
-                        <option value="316i" />
-                        <option value="318i" />
-                        <option value="320i" />
-                        <option value="320d" />
-                        <option value="330i" />
-                        <option value="A160" />
-                        <option value="A180" />
-                        <option value="A200" />
-                        <option value="C180" />
-                        <option value="C200" />
-                        <option value="C220d" />
-                        <option value="E200" />
-                        <option value="E220d" />
-                        <option value="1.6i" />
-                        <option value="2.0i" />
-                        <option value="3.0i" />
-                        <option value="Hybrid" />
-                        <option value="Elektro" />
-                      </datalist>
-                    </div>
+                {/* Fahrzeugdetails */}
+                <div className={styles.carDetailsGrid}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Marke</label>
+                    <input
+                      type="text"
+                      value={carDetails.make}
+                      onChange={(e) => setCarDetails({...carDetails, make: e.target.value})}
+                      className={styles.input}
+                      placeholder="z.B. BMW"
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Modell</label>
+                    <input
+                      type="text"
+                      value={carDetails.model}
+                      onChange={(e) => setCarDetails({...carDetails, model: e.target.value})}
+                      className={styles.input}
+                      placeholder="z.B. 3er"
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Baujahr</label>
+                    <input
+                      type="text"
+                      value={carDetails.year}
+                      onChange={(e) => setCarDetails({...carDetails, year: e.target.value})}
+                      className={styles.input}
+                      placeholder="z.B. 2020"
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Motortyp</label>
+                    <select
+                      value={carDetails.engineType}
+                      onChange={(e) => setCarDetails({...carDetails, engineType: e.target.value})}
+                      className={styles.input}
+                    >
+                      <option value="">Bitte wählen</option>
+                      <option value="benzin">Benzin</option>
+                      <option value="diesel">Diesel</option>
+                      <option value="hybrid">Hybrid</option>
+                      <option value="elektro">Elektro</option>
+                    </select>
                   </div>
                 </div>
 
-                {/* KI-Modell Auswahl */}
+                {/* AI Model Selection - Card Version */}
                 <div className={styles.formGroup}>
                   <label className={styles.label}>KI-Modell wählen</label>
-                  <div className={styles.radioGroup}>
+                  <div className={styles.aiSelectorContainer}>
                     <div 
-                      className={`${styles.radioOption} ${selectedAI === 'claude' ? styles.radioSelected : ''}`}
+                      className={`${styles.aiCard} ${selectedAI === 'claude' ? styles.aiCardActive : ''}`}
                       onClick={() => setSelectedAI('claude')}
                     >
-                      🤖 Claude 4
+                      <div className={styles.aiCardHeader}>
+                        <div className={styles.aiIcon}>🤖</div>
+                        <div className={styles.aiInfo}>
+                          <div className={styles.aiName}>Claude</div>
+                          <div className={styles.aiProvider}>Anthropic</div>
+                        </div>
+                        <div className={styles.aiRadio}>
+                          <input
+                            type="radio"
+                            name="aiModel"
+                            value="claude"
+                            checked={selectedAI === 'claude'}
+                            onChange={() => setSelectedAI('claude')}
+                            className={styles.radioInput}
+                          />
+                          <div className={styles.radioCustom}></div>
+                        </div>
+                      </div>
+                      <div className={styles.aiDescription}>
+                        Spezialisiert auf detaillierte technische Analysen und präzise Fahrzeugdiagnosen
+                      </div>
+                      <div className={styles.aiFeatures}>
+                        <span className={styles.aiFeature}>🔍 Detailanalyse</span>
+                        <span className={styles.aiFeature}>🎯 Präzise Diagnosen</span>
+                      </div>
                     </div>
+
                     <div 
-                      className={`${styles.radioOption} ${selectedAI === 'chatgpt' ? styles.radioSelected : ''}`}
+                      className={`${styles.aiCard} ${selectedAI === 'chatgpt' ? styles.aiCardActive : ''}`}
                       onClick={() => setSelectedAI('chatgpt')}
                     >
-                      🤖 ChatGPT
+                      <div className={styles.aiCardHeader}>
+                        <div className={styles.aiIcon}>🤖</div>
+                        <div className={styles.aiInfo}>
+                          <div className={styles.aiName}>ChatGPT</div>
+                          <div className={styles.aiProvider}>OpenAI</div>
+                        </div>
+                        <div className={styles.aiRadio}>
+                          <input
+                            type="radio"
+                            name="aiModel"
+                            value="chatgpt"
+                            checked={selectedAI === 'chatgpt'}
+                            onChange={() => setSelectedAI('chatgpt')}
+                            className={styles.radioInput}
+                          />
+                          <div className={styles.radioCustom}></div>
+                        </div>
+                      </div>
+                      <div className={styles.aiDescription}>
+                        Vielseitige KI mit breitem Autowissen und praktischen Lösungsansätzen
+                      </div>
+                      <div className={styles.aiFeatures}>
+                        <span className={styles.aiFeature}>💡 Praktische Tipps</span>
+                        <span className={styles.aiFeature}>🔧 Breites Wissen</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -496,19 +594,15 @@ const KFZDiagnosePlatform = () => {
                   <textarea
                     value={problem}
                     onChange={(e) => setProblem(e.target.value)}
+                    rows={4}
                     className={styles.textarea}
-                    placeholder="Beschreiben Sie das Problem möglichst detailliert. Z.B: Das Auto macht beim Starten ein klickendes Geräusch, aber der Motor springt nicht an. Bei Dieselmotoren erwähnen Sie bitte auch AdBlue-Status oder DPF-Probleme..."
+                    placeholder="Beschreiben Sie das Problem so detailliert wie möglich...
+Z.B: Das Auto macht beim Starten ein klickendes Geräusch, aber der Motor springt nicht an. Bei Dieselmotoren erwähnen Sie bitte auch AdBlue-Status oder DPF-Probleme..."
                   />
                 </div>
 
-                {error && (
-                  <div className={styles.error}>
-                    ⚠️ {error}
-                  </div>
-                )}
-
                 <button
-                  onClick={handleSubmit}
+                  onClick={analyzeWithAI}
                   disabled={loading || !problem.trim()}
                   className={`${styles.button} ${loading || !problem.trim() ? styles.buttonDisabled : ''}`}
                 >
@@ -518,15 +612,12 @@ const KFZDiagnosePlatform = () => {
                       KI analysiert...
                     </>
                   ) : (
-                    <>
-                      🔍 Problem analysieren
-                    </>
+                    <>🔍 Problem analysieren</>
                   )}
                 </button>
               </div>
             </div>
 
-            {/* Ergebnisbereich */}
             <div>
               {results ? renderDiagnosisResults() : (
                 <div className={styles.placeholderCard}>
@@ -539,61 +630,110 @@ const KFZDiagnosePlatform = () => {
               )}
             </div>
           </div>
-        ) : (
-          /* Historie-Tab */
-          <div className={styles.card}>
-            <div className={styles.historyItemHeader}>
-              <h2 className={styles.cardTitle}>📋 Diagnose-Historie</h2>
-              {searchHistory.length > 0 && (
-                <button 
-                  onClick={clearHistory}
-                  className={styles.deleteButton}
+        )}
+
+        {/* OBD2 Tab */}
+        {activeTab === 'obd2' && (
+          <div className={styles.grid}>
+            <div>
+              <div className={styles.card}>
+                <h2 className={styles.cardTitle}>🔧 OBD2-Fehlercode Diagnose</h2>
+
+                {/* VIN Eingabe für OBD2 */}
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>
+                    Fahrzeug-Identifikationsnummer (VIN)
+                    <span style={{color: '#6b7280', fontWeight: 'normal'}}> | Für fahrzeugspezifische Diagnose</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={obdVin}
+                    onChange={(e) => handleObdVinChange(e.target.value)}
+                    className={`${styles.vinInput} ${
+                      obdVinDecoded?.isValid === true ? styles.vinValid : 
+                      obdVinDecoded?.isValid === false ? styles.vinInvalid : ''
+                    }`}
+                    placeholder="z.B. WBAFR9C50BC123456 (17 Zeichen)"
+                    maxLength="17"
+                  />
+                  
+                  {obdVinDecoded && (
+                    <div className={`${styles.vinInfo} ${
+                      obdVinDecoded.isValid ? styles.vinInfoValid : styles.vinInfoInvalid
+                    }`}>
+                      {obdVinDecoded.isValid ? (
+                        <div>
+                          <div><strong>Fahrzeug:</strong> {obdVinDecoded.make} {obdVinDecoded.series}</div>
+                          <div><strong>Baujahr:</strong> {obdVinDecoded.year}</div>
+                        </div>
+                      ) : (
+                        <div style={{color: '#dc2626'}}>
+                          ❌ {obdVinDecoded.error}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* OBD2-Code Eingabe */}
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>
+                    OBD2-Fehlercode
+                    <span style={{color: '#6b7280', fontWeight: 'normal'}}> | z.B. P0171, P0301, P0420</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={obdCode}
+                    onChange={(e) => handleObdCodeChange(e.target.value)}
+                    className={`${styles.input} ${styles.obdCodeInput} ${
+                      obdCodeDecoded && obdCode.length >= 4 ? styles.codeValid : ''
+                    }`}
+                    placeholder="z.B. P0171"
+                    maxLength="6"
+                  />
+                  
+                  {obdCodeDecoded && obdCode.length >= 4 && (
+                    <div className={styles.codePreview}>
+                      <div><strong>Beschreibung:</strong> {obdCodeDecoded.description}</div>
+                      <div><strong>Kategorie:</strong> {obdCodeDecoded.category}</div>
+                      <div>
+                        <strong>Schweregrad:</strong>
+                        <span className={`${styles.severityBadge} ${obdCodeDecoded.severity ? styles[obdCodeDecoded.severity.toLowerCase().replace(/[^a-z]/g, '')] : styles.unbekannt}`}>
+                          {obdCodeDecoded.severity}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={analyzeOBD2}
+                  disabled={loading || !obdCode.trim() || obdCode.length < 4 || !obdCodeDecoded}
+                  className={`${styles.button} ${styles.obd2Button} ${loading || !obdCode.trim() || obdCode.length < 4 || !obdCodeDecoded ? styles.buttonDisabled : ''}`}
                 >
-                  Alle löschen
+                  {loading ? (
+                    <>
+                      <span className={styles.spinner}></span>
+                      Analysiere OBD2-Code...
+                    </>
+                  ) : (
+                    <>🔧 OBD2-Code analysieren</>
+                  )}
                 </button>
+              </div>
+            </div>
+
+            <div>
+              {obdResults ? renderOBD2Results() : (
+                <div className={styles.placeholderCard}>
+                  <div style={{fontSize: '4rem', marginBottom: '1rem'}}>🔧</div>
+                  <h3>OBD2-Diagnose bereit</h3>
+                  <p style={{color: '#6b7280'}}>
+                    Geben Sie die Fahrgestellnummer und den OBD2-Fehlercode ein für eine detaillierte Diagnose.
+                  </p>
+                </div>
               )}
             </div>
-            
-            {searchHistory.length === 0 ? (
-              <div className={styles.emptyState}>
-                <div style={{fontSize: '3rem', marginBottom: '1rem'}}>📋</div>
-                <h3>Keine Historie vorhanden</h3>
-                <p>Ihre durchgeführten Diagnosen werden hier angezeigt.</p>
-              </div>
-            ) : (
-              <div className={styles.historyContainer}>
-                {searchHistory.map((item) => (
-                  <div 
-                    key={item.id} 
-                    className={styles.historyItem} 
-                    onClick={() => loadHistoryItem(item)}
-                  >
-                    <div className={styles.historyItemHeader}>
-                      <div className={styles.historyMetadata}>
-                        {formatDate(item.timestamp)} | {item.aiModel === 'claude' ? '🤖 Claude' : '🤖 ChatGPT'}
-                        {item.vinDecoded && ` | VIN: ${item.vinDecoded.make} ${item.vinDecoded.series || ''}`}
-                      </div>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteHistoryItem(item.id);
-                        }}
-                        className={styles.deleteButton}
-                      >
-                        Löschen
-                      </button>
-                    </div>
-                    <div className={styles.historyProblem}>
-                      {item.problem.substring(0, 100)}...
-                    </div>
-                    <div className={styles.historyCarDetails}>
-                      {item.carDetails.make} {item.carDetails.model} ({item.carDetails.year})
-                      {item.carDetails.engineType && ` - ${item.carDetails.engineType}`}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
       </main>

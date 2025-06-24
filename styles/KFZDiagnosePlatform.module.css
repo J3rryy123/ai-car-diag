@@ -692,4 +692,218 @@
   .detailsPanel {
     font-size: 0.8rem;
   }
+
+  /* Fügen Sie diese Styles zu Ihrer KFZDiagnosePlatform.module.css hinzu: */
+
+/* OBD2-spezifische Styles */
+.codeValid {
+  border-color: #10b981 !important;
+  background-color: #f0fdf4;
+}
+
+.codePreview {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.codePreview div {
+  margin-bottom: 0.5rem;
+}
+
+.codePreview div:last-child {
+  margin-bottom: 0;
+}
+
+.severityBadge {
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.severityBadge.hoch {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.severityBadge.mittel {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.severityBadge.niedrig {
+  background-color: #f0fdf4;
+  color: #16a34a;
+}
+
+.severityBadge.unbekannt {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Code-Info Section */
+.codeInfo {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.codeInfo div {
+  margin-bottom: 0.5rem;
+}
+
+.codeInfo div:last-child {
+  margin-bottom: 0;
+}
+
+/* Probability Badges für OBD2 */
+.probabilityBadge {
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.probabilityBadge.high {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.probabilityBadge.medium {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.probabilityBadge.low {
+  background-color: #f0fdf4;
+  color: #16a34a;
+}
+
+/* Historie-Updates für OBD2 */
+.historyItem[data-type="obd2"] {
+  border-left: 4px solid #059669;
+}
+
+.historyItem[data-type="obd2"]::before {
+  content: "🔧";
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  font-size: 1.5rem;
+}
+
+/* OBD2-spezifische Platzhalter */
+.placeholderCard.obd2 {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+
+.placeholderCard.obd2 h3 {
+  color: #0c4a6e;
+}
+
+/* Responsive Anpassungen für OBD2-Tab */
+@media (max-width: 768px) {
+  .codePreview {
+    font-size: 0.8rem;
+    padding: 0.5rem;
+  }
+  
+  .severityBadge {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+  }
+  
+  .codeInfo {
+    padding: 0.75rem;
+  }
+}
+
+/* Tab-Button Styling für OBD2 */
+.navButton:nth-child(2) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+.navButton:nth-child(2):hover {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+}
+
+.navButton:nth-child(2).navButtonActive {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 4px 14px 0 rgba(5, 150, 105, 0.39);
+}
+
+/* Erweiterte Input-Styles */
+.input.obdCode {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.input.obdCode:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+}
+
+/* OBD2-spezifische Card-Styles */
+.card.obd2 {
+  border-top: 4px solid #059669;
+}
+
+.card.obd2 .cardTitle::before {
+  content: "🔧 ";
+}
+
+/* Animationen für OBD2-Komponenten */
+.codePreview {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Button-Styling für OBD2-Analyse */
+.button.obd2 {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: white;
+  border: none;
+}
+
+.button.obd2:hover:not(:disabled) {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
+}
+
+.button.obd2:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Erfolgs-Indikator für gültige Codes */
+.codeValid::after {
+  content: "✓";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #10b981;
+  font-weight: bold;
+}
 }

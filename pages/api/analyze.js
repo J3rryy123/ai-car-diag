@@ -4,8 +4,253 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { problem, carDetails, aiModel, vin } = req.body;
+  const { type, problem, carDetails, aiModel, vin, vinDecoded, obdCode, obdVin, obdVinDecoded, codeInfo } = req.body;
 
+  // OBD2-Analyse
+  if (type === 'obd2') {
+    if (!obdCode || !codeInfo) {
+      return res.status(400).json({ message: 'OBD2-Code und Code-Informationen sind erforderlich' });
+    }
+
+    // Debug-Informationen für OBD2
+    const debugInfo = {
+      hasClaudeKey: !!process.env.CLAUDE_API_KEY,
+      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+      selectedModel: req.body.aiModel,
+      environment: process.env.NODE_ENV,
+      hasVIN: !!obdVin,
+      obdCode: obdCode
+    };
+
+    console.log('OBD2 API Debug Info:', debugInfo);
+    console.log('Received aiModel:', req.body.aiModel);
+    console.log('Will use Claude?', req.body.aiModel === 'claude' && !!process.env.CLAUDE_API_KEY);
+    console.log('Will use OpenAI?', req.body.aiModel === 'chatgpt' && !!process.env.OPENAI_API_KEY);
+
+    try {
+      let analysis;
+      let apiUsed = 'demo-obd2';
+      let errorDetails = null;
+      let modelUsed = null;
+
+      // Versuche echte KI-Analyse
+      const aiModel = req.body.aiModel || 'claude'; // Default Claude für OBD2
+      
+      if ((aiModel === 'claude' && process.env.CLAUDE_API_KEY) || (aiModel === 'chatgpt' && process.env.OPENAI_API_KEY)) {
+        const vehicleInfo = obdVinDecoded ? `${obdVinDecoded.make} ${obdVinDecoded.series} (${obdVinDecoded.year})` : 'Fahrzeug';
+        
+        const prompt = `Analysiere folgenden OBD2-Fehlercode als KFZ-Experte:
+
+OBD2-Code: ${obdCode}
+Beschreibung: ${codeInfo.description}
+Kategorie: ${codeInfo.category}
+Schweregrad: ${codeInfo.severity}
+${obdVinDecoded ? `Fahrzeug: ${vehicleInfo}` : ''}
+
+Bekannte Symptome: ${codeInfo.symptoms.join(', ')}
+Häufige Ursachen: ${codeInfo.commonCauses.join(', ')}
+
+Bitte gib eine detaillierte OBD2-Analyse in folgendem JSON-Format zurück:
+{
+  "diagnosis": "Detaillierte Diagnose mit fahrzeugspezifischen Hinweisen und Reparaturempfehlungen",
+  "confidence": 90,
+  "category": "${codeInfo.category}",
+  "symptoms": ["Spezifische Symptome", "Weitere Anzeichen"],
+  "possibleCauses": [
+    {"cause": "Wahrscheinlichste Ursache", "probability": 70, "cost": "200-400€", "commonFor": "Spezifischer Kontext"},
+    {"cause": "Alternative Ursache", "probability": 20, "cost": "100-200€", "commonFor": "Häufig bei diesem Fahrzeugtyp"}
+  ],
+  "nextSteps": [
+    "Spezifischer Diagnoseschritt mit Werkzeugen",
+    "Prüfung spezifischer Komponenten",
+    "Reparaturschritte in korrekter Reihenfolge"
+  ],
+  "urgency": "Dringlichkeitsbewertung basierend auf Schweregrad und Auswirkungen",
+  "vehicleSpecific": "Spezifische Hinweise für dieses Fahrzeugmodell oder allgemeine Tipps",
+  "preventiveMeasures": "Vorbeugende Maßnahmen um diesen Fehler zu vermeiden"
+}`;
+
+        // Claude API versuchen (wenn Claude gewählt und API-Key vorhanden)
+        if (aiModel === 'claude' && process.env.CLAUDE_API_KEY) {
+          const claudeModels = [
+            'claude-3-5-sonnet-20241022',
+            'claude-3-5-sonnet-20240620',
+            'claude-3-sonnet-20240229'
+          ];
+
+          for (const model of claudeModels) {
+            try {
+              console.log(`Attempting Claude API for OBD2 with model: ${model}`);
+              
+              const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-API-Key': process.env.CLAUDE_API_KEY,
+                  'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify({
+                  model: model,
+                  max_tokens: 2000,
+                  messages: [{
+                    role: 'user',
+                    content: prompt
+                  }]
+                })
+              });
+
+              console.log(`Claude OBD2 API Response Status: ${response.status} for model: ${model}`);
+
+              if (response.ok) {
+                const data = await response.json();
+                const content = data.content[0].text;
+
+                try {
+                  const jsonMatch = content.match(/\{[\s\S]*\}/);
+                  if (jsonMatch) {
+                    analysis = JSON.parse(jsonMatch[0]);
+                    apiUsed = 'claude-obd2';
+                    modelUsed = model;
+                    console.log(`Claude OBD2 API Success with model: ${model}`);
+                    break;
+                  } else {
+                    throw new Error('Kein JSON gefunden in Claude OBD2 Response');
+                  }
+                } catch (parseError) {
+                  console.error('Claude OBD2 JSON Parse Error:', parseError);
+                  // Bei Parse-Fehler fallback verwenden
+                  analysis = createIntelligentOBD2Analysis(obdCode, codeInfo, obdVinDecoded, content);
+                  apiUsed = 'claude-obd2-fallback';
+                  modelUsed = model;
+                  break;
+                }
+              } else {
+                const errorData = await response.json().catch(() => null);
+                const modelError = new Error(`Claude OBD2 API ${response.status}: ${errorData?.error?.message || 'Unknown error'}`);
+                console.error(`Claude OBD2 API Error for model ${model}:`, modelError);
+                
+                if (response.status === 400 || response.status === 401) {
+                  errorDetails = `Claude OBD2 API Fehler: ${modelError.message}`;
+                  break;
+                }
+              }
+            } catch (error) {
+              console.error(`Claude OBD2 Network Error for model ${model}:`, error);
+              if (model === claudeModels[claudeModels.length - 1]) {
+                errorDetails = `Claude OBD2 Netzwerk-Fehler: ${error.message}`;
+              }
+            }
+          }
+        }
+
+        // OpenAI API versuchen (wenn ChatGPT gewählt und API-Key vorhanden)
+        if (!analysis && aiModel === 'chatgpt' && process.env.OPENAI_API_KEY) {
+          const openaiModels = ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'];
+
+          for (const model of openaiModels) {
+            try {
+              console.log(`Attempting OpenAI API for OBD2 with model: ${model}`);
+              
+              const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+                },
+                body: JSON.stringify({
+                  model: model,
+                  messages: [{
+                    role: 'user',
+                    content: prompt
+                  }],
+                  max_tokens: 2000,
+                  temperature: 0.7
+                })
+              });
+
+              console.log(`OpenAI OBD2 API Response Status: ${response.status} for model: ${model}`);
+
+              if (response.ok) {
+                const data = await response.json();
+                const content = data.choices[0].message.content;
+
+                try {
+                  const jsonMatch = content.match(/\{[\s\S]*\}/);
+                  if (jsonMatch) {
+                    analysis = JSON.parse(jsonMatch[0]);
+                    apiUsed = 'openai-obd2';
+                    modelUsed = model;
+                    console.log(`OpenAI OBD2 API Success with model: ${model}`);
+                    break;
+                  } else {
+                    throw new Error('Kein JSON gefunden in OpenAI OBD2 Response');
+                  }
+                } catch (parseError) {
+                  console.error('OpenAI OBD2 JSON Parse Error:', parseError);
+                  analysis = createIntelligentOBD2Analysis(obdCode, codeInfo, obdVinDecoded, content);
+                  apiUsed = 'openai-obd2-fallback';
+                  modelUsed = model;
+                  break;
+                }
+              } else {
+                const errorData = await response.json().catch(() => null);
+                const modelError = new Error(`OpenAI OBD2 API ${response.status}: ${errorData?.error?.message || 'Unknown error'}`);
+                console.error(`OpenAI OBD2 API Error for model ${model}:`, modelError);
+                
+                if (response.status === 400 || response.status === 401) {
+                  errorDetails = `OpenAI OBD2 API Fehler: ${modelError.message}`;
+                  break;
+                }
+              }
+            } catch (error) {
+              console.error(`OpenAI OBD2 Network Error for model ${model}:`, error);
+              if (model === openaiModels[openaiModels.length - 1]) {
+                errorDetails = `OpenAI OBD2 Netzwerk-Fehler: ${error.message}`;
+              }
+            }
+          }
+        }
+      }
+
+      // Fallback zur Demo-Analyse
+      if (!analysis) {
+        console.log('No AI analysis succeeded, falling back to demo mode');
+        console.log('Error details:', errorDetails);
+        analysis = createOBD2Analysis(obdCode, codeInfo, obdVinDecoded);
+        apiUsed = 'demo-obd2';
+        errorDetails = errorDetails || `Keine ${aiModel === 'claude' ? 'Claude' : 'OpenAI'} API verfügbar - Demo-Modus`;
+        modelUsed = 'Demo';
+      } else {
+        console.log('AI analysis successful, mode:', apiUsed);
+      }
+
+      return res.status(200).json({
+        analysis,
+        mode: apiUsed,
+        debug: debugInfo,
+        error: errorDetails,
+        timestamp: new Date().toISOString(),
+        modelUsed: modelUsed
+      });
+
+    } catch (error) {
+      console.error('OBD2 Analysis error:', error);
+      
+      // Fallback auch bei Fehlern
+      const fallbackAnalysis = createOBD2Analysis(obdCode, codeInfo, obdVinDecoded);
+      
+      return res.status(200).json({ 
+        analysis: fallbackAnalysis,
+        mode: 'demo-obd2-error',
+        debug: debugInfo,
+        error: `OBD2 Fehler: ${error.message}`,
+        timestamp: new Date().toISOString(),
+        modelUsed: 'Fallback'
+      });
+    }
+  }
+
+  // Normale Diagnose
   if (!problem || !carDetails) {
     return res.status(400).json({ message: 'Problem und Fahrzeugdaten sind erforderlich' });
   }
@@ -28,9 +273,9 @@ export default async function handler(req, res) {
     let modelUsed = null;
 
     // Erweiterten Prompt mit VIN-Informationen erstellen
-    let vehicleInfo = `${carDetails.make} ${carDetails.model} ${carDetails.year}, ${carDetails.mileage}km`;
-    if (vin) {
-      vehicleInfo += ` (VIN: ${vin})`;
+    let vehicleInfo = `${carDetails.make} ${carDetails.model} ${carDetails.year}`;
+    if (carDetails.engineType) {
+      vehicleInfo += `, Motor: ${carDetails.engineType}`;
     }
 
     const prompt = `Analysiere folgendes KFZ-Problem als Experte:
@@ -74,7 +319,7 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'x-api-key': process.env.CLAUDE_API_KEY,
+              'X-API-Key': process.env.CLAUDE_API_KEY,
               'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
@@ -92,7 +337,7 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
           if (response.ok) {
             const data = await response.json();
             const content = data.content[0].text;
-            
+
             // Versuche JSON zu extrahieren
             try {
               const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -107,29 +352,31 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
               }
             } catch (parseError) {
               console.error('JSON Parse Error:', parseError);
-              analysis = createFallbackAnalysis(content, 'claude');
+              analysis = createFallbackAnalysis(content, aiModel);
               apiUsed = 'claude-fallback';
               modelUsed = model;
-              break; // Verwende Fallback, stoppe die Schleife
+              break;
             }
           } else {
-            const errorText = await response.text();
-            console.error(`Claude API Error with model ${model}:`, response.status, errorText);
+            const errorData = await response.json().catch(() => null);
+            const modelError = new Error(`Claude API ${response.status}: ${errorData?.error?.message || 'Unknown error'}`);
+            console.error(`Claude API Error for model ${model}:`, modelError);
             
-            // Wenn es ein 404 Fehler ist, versuche das nächste Modell
-            if (response.status === 404) {
-              continue;
-            } else {
-              // Bei anderen Fehlern, stoppe und verwende Demo
-              throw new Error(`Claude API Error: ${response.status} - ${errorText}`);
+            // Bei 400/401 Fehlern nicht weitere Modelle versuchen
+            if (response.status === 400 || response.status === 401) {
+              errorDetails = `Claude API Fehler: ${modelError.message}`;
+              break;
+            }
+            
+            // Bei anderen Fehlern das nächste Modell versuchen
+            if (model === claudeModels[claudeModels.length - 1]) {
+              errorDetails = `Alle Claude-Modelle fehlgeschlagen. Letzter Fehler: ${modelError.message}`;
             }
           }
-        } catch (modelError) {
-          console.error(`Error with Claude model ${model}:`, modelError);
-          // Bei Netzwerkfehlern etc., versuche das nächste Modell
+        } catch (networkError) {
+          console.error(`Network error for Claude model ${model}:`, networkError);
           if (model === claudeModels[claudeModels.length - 1]) {
-            // Letztes Modell, verwende Demo
-            errorDetails = `Alle Claude-Modelle fehlgeschlagen. Letzter Fehler: ${modelError.message}`;
+            errorDetails = `Claude Netzwerk-Fehler. Letzter Fehler: ${networkError.message}`;
           }
         }
       }
@@ -192,29 +439,31 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
               }
             } catch (parseError) {
               console.error('JSON Parse Error:', parseError);
-              analysis = createFallbackAnalysis(content, 'chatgpt');
+              analysis = createFallbackAnalysis(content, aiModel);
               apiUsed = 'openai-fallback';
               modelUsed = model;
-              break; // Verwende Fallback, stoppe die Schleife
+              break;
             }
           } else {
-            const errorText = await response.text();
-            console.error(`OpenAI API Error with model ${model}:`, response.status, errorText);
+            const errorData = await response.json().catch(() => null);
+            const modelError = new Error(`OpenAI API ${response.status}: ${errorData?.error?.message || 'Unknown error'}`);
+            console.error(`OpenAI API Error for model ${model}:`, modelError);
             
-            // Wenn es ein 404 Fehler ist, versuche das nächste Modell
-            if (response.status === 404) {
-              continue;
-            } else {
-              // Bei anderen Fehlern, stoppe und verwende Demo
-              throw new Error(`OpenAI API Error: ${response.status} - ${errorText}`);
+            // Bei 400/401 Fehlern nicht weitere Modelle versuchen
+            if (response.status === 400 || response.status === 401) {
+              errorDetails = `OpenAI API Fehler: ${modelError.message}`;
+              break;
+            }
+            
+            // Bei anderen Fehlern das nächste Modell versuchen
+            if (model === openaiModels[openaiModels.length - 1]) {
+              errorDetails = `Alle OpenAI-Modelle fehlgeschlagen. Letzter Fehler: ${modelError.message}`;
             }
           }
-        } catch (modelError) {
-          console.error(`Error with OpenAI model ${model}:`, modelError);
-          // Bei Netzwerkfehlern etc., versuche das nächste Modell
+        } catch (networkError) {
+          console.error(`Network error for OpenAI model ${model}:`, networkError);
           if (model === openaiModels[openaiModels.length - 1]) {
-            // Letztes Modell, verwende Demo
-            errorDetails = `Alle OpenAI-Modelle fehlgeschlagen. Letzter Fehler: ${modelError.message}`;
+            errorDetails = `OpenAI Netzwerk-Fehler. Letzter Fehler: ${networkError.message}`;
           }
         }
       }
@@ -225,44 +474,104 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
         apiUsed = 'demo-openai-error';
         errorDetails = errorDetails || 'Alle OpenAI-Modelle nicht verfügbar';
       }
+
     } else {
-      // Demo-Modus: Kein API-Key verfügbar
-      console.log('Using demo mode - no API key available');
+      // Demo-Modus (keine API-Keys vorhanden)
       analysis = createIntelligentDemo(problem, carDetails, aiModel, vin);
-      apiUsed = 'demo-no-key';
+      apiUsed = `demo-${aiModel}`;
+      errorDetails = aiModel === 'claude' ? 'Claude API-Key nicht verfügbar' : 'OpenAI API-Key nicht verfügbar';
     }
 
-    res.status(200).json({ 
+    return res.status(200).json({
       analysis,
       mode: apiUsed,
-      modelUsed: modelUsed,
       debug: debugInfo,
       error: errorDetails,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      modelUsed: modelUsed
     });
 
   } catch (error) {
-    console.error('General API Error:', error);
+    console.error('General analysis error:', error);
     
-    // Fallback für Demo-Zwecke
-    const demoAnalysis = createIntelligentDemo(problem, carDetails, aiModel, vin);
+    // Fallback-Analyse auch bei unerwarteten Fehlern
+    const fallbackAnalysis = createIntelligentDemo(problem, carDetails, aiModel, vin);
     
-    res.status(200).json({ 
-      analysis: demoAnalysis,
+    return res.status(200).json({
+      analysis: fallbackAnalysis,
       mode: 'demo-error',
       debug: debugInfo,
-      error: error.message,
-      note: 'Fallback auf Demo-Modus aufgrund von Fehler'
+      error: `Unerwarteter Fehler: ${error.message}`,
+      timestamp: new Date().toISOString(),
+      modelUsed: 'fallback'
     });
   }
 }
 
-// Intelligente Demo-Analyse basierend auf Schlüsselwörtern mit VIN-Unterstützung
+// Intelligente OBD2-Analyse mit KI-Fallback
+function createIntelligentOBD2Analysis(obdCode, codeInfo, vinDecoded, aiContent) {
+  const vehicleInfo = vinDecoded ? ` für ${vinDecoded.make} ${vinDecoded.series} (${vinDecoded.year})` : '';
+  
+  return {
+    codeInfo,
+    diagnosis: aiContent.length > 500 ? aiContent.substring(0, 500) + '...' : aiContent,
+    confidence: 88,
+    category: codeInfo.category,
+    symptoms: codeInfo.symptoms,
+    possibleCauses: codeInfo.commonCauses.map((cause, index) => ({
+      cause,
+      probability: Math.max(75 - index * 12, 10),
+      cost: `${75 + index * 75}-${250 + index * 150}€`,
+      commonFor: `KI-Analyse: ${codeInfo.category}`
+    })),
+    nextSteps: [
+      `${codeInfo.category} mit professionellem OBD2-Scanner überprüfen`,
+      'Live-Daten und Freeze-Frame-Daten auslesen',
+      'Komponenten entsprechend KI-Empfehlung testen',
+      'Reparatur nach detaillierter Diagnose durchführen',
+      'Testfahrt und Fehlerspeicher erneut prüfen'
+    ],
+    urgency: codeInfo.severity === 'Hoch' ? 'HOCH - Sofortige professionelle Diagnose empfohlen' : 
+             codeInfo.severity === 'Mittel' ? 'MITTEL - Zeitnahe Überprüfung ratsam' : 
+             'NIEDRIG - Bei nächster Werkstattbesuch erwähnen',
+    vehicleSpecific: vinDecoded ? `Spezifische Hinweise für ${vinDecoded.make} ${vinDecoded.series}` : 'Allgemeine OBD2-Diagnose',
+    preventiveMeasures: 'Regelmäßige Wartung und Qualitätskraftstoff verwenden'
+  };
+}
+function createOBD2Analysis(obdCode, codeInfo, vinDecoded = null) {
+  const vehicleInfo = vinDecoded ? ` für ${vinDecoded.make} ${vinDecoded.series} (${vinDecoded.year})` : '';
+  
+  return {
+    codeInfo,
+    diagnosis: `[DEMO] OBD2-Code ${obdCode}${vehicleInfo}: ${codeInfo.description}. Schweregrad: ${codeInfo.severity}`,
+    confidence: 90,
+    category: codeInfo.category,
+    symptoms: codeInfo.symptoms,
+    possibleCauses: codeInfo.commonCauses.map((cause, index) => ({
+      cause,
+      probability: Math.max(80 - index * 15, 10),
+      cost: `${50 + index * 100}-${200 + index * 200}€`,
+      commonFor: `Häufig bei ${codeInfo.category}`
+    })),
+    nextSteps: [
+      `${codeInfo.category} detailliert überprüfen`,
+      'Zusätzliche Fehlercodes auslesen',
+      'Live-Daten mit OBD2-Scanner prüfen',
+      'Reparatur entsprechend Diagnose durchführen',
+      'Fehlerspeicher nach Reparatur löschen'
+    ],
+    urgency: codeInfo.severity === 'Hoch' ? 'HOCH - Zeitnahe Reparatur erforderlich' : 
+             codeInfo.severity === 'Mittel' ? 'MITTEL - Baldige Überprüfung empfohlen' : 
+             'NIEDRIG - Bei nächster Inspektion prüfen lassen'
+  };
+}
+
+// Intelligente Demo-Analyse basierend auf Schlüsselwörtern
 function createIntelligentDemo(problem, carDetails, aiModel, vin) {
   const problemLower = problem.toLowerCase();
   const vinInfo = vin ? ` (VIN: ${vin})` : '';
   
-  // Erweiterte Diagnose mit VIN-spezifischen Hinweisen
+  // Erweiterte Fahrzeugspezifische Hinweise
   const getVehicleSpecificHint = () => {
     if (!vin) return null;
     
@@ -344,7 +653,7 @@ function createIntelligentDemo(problem, carDetails, aiModel, vin) {
   
   // Standard-Fallback
   return {
-    diagnosis: `[DEMO] Basierend auf Ihrer Beschreibung "${problem}" für Ihr ${carDetails.make} ${carDetails.model}${vinInfo} (${carDetails.year}, ${carDetails.mileage}km) empfehle ich eine professionelle Diagnose zur genauen Problembestimmung.`,
+    diagnosis: `[DEMO] Basierend auf Ihrer Beschreibung "${problem}" für Ihr ${carDetails.make} ${carDetails.model}${vinInfo} empfehle ich eine professionelle Diagnose zur genauen Problembestimmung.`,
     confidence: aiModel === 'claude' ? 78 : 75,
     possibleCauses: [
       { cause: "Verschleißbedingte Komponente", probability: 50, cost: "100-400€", commonFor: "Altersbedingt" },

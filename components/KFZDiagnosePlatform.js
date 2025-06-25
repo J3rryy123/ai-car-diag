@@ -1,4 +1,4 @@
-// components/KFZDiagnosePlatform.js
+// main Component
 import React, { useState } from 'react';
 import VIN_DECODER from '../utils/vinDecoder';
 import OBD2_DECODER from '../utils/obdDecoder';

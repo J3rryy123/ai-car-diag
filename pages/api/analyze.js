@@ -1,4 +1,4 @@
-// pages/api/analyze.js
+// analyze Component
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
@@ -521,7 +521,6 @@ function createIntelligentOBD2Analysis(obdCode, codeInfo, vinDecoded, aiContent)
     possibleCauses: codeInfo.commonCauses.map((cause, index) => ({
       cause,
       probability: Math.max(75 - index * 12, 10),
-      cost: `${75 + index * 75}-${250 + index * 150}€`,
       commonFor: `KI-Analyse: ${codeInfo.category}`
     })),
     nextSteps: [
@@ -550,7 +549,6 @@ function createOBD2Analysis(obdCode, codeInfo, vinDecoded = null) {
     possibleCauses: codeInfo.commonCauses.map((cause, index) => ({
       cause,
       probability: Math.max(80 - index * 15, 10),
-      cost: `${50 + index * 100}-${200 + index * 200}€`,
       commonFor: `Häufig bei ${codeInfo.category}`
     })),
     nextSteps: [
@@ -593,9 +591,9 @@ function createIntelligentDemo(problem, carDetails, aiModel, vin) {
       diagnosis: `[DEMO] Basierend auf Ihrer Beschreibung "${problem}" für Ihr ${carDetails.make} ${carDetails.model}${vinInfo} deutet dies auf ein Starterproblem hin. Das typische Klicken beim Startversuch weist auf einen defekten Anlasser oder schwache Batterie hin.`,
       confidence: aiModel === 'claude' ? 92 : 88,
       possibleCauses: [
-        { cause: "Defekter Anlasser", probability: 75, cost: "250-450€", commonFor: "Häufig bei diesem Alter" },
-        { cause: "Schwache/defekte Batterie", probability: 20, cost: "80-150€", commonFor: "Allgemein" },
-        { cause: "Korrodierte Batterieklemmen", probability: 5, cost: "10-30€", commonFor: "Ältere Fahrzeuge" }
+        { cause: "Defekter Anlasser", probability: 75, commonFor: "Häufig bei diesem Alter" },
+        { cause: "Schwache/defekte Batterie", probability: 20, commonFor: "Allgemein" },
+        { cause: "Korrodierte Batterieklemmen", probability: 5, commonFor: "Ältere Fahrzeuge" }
       ],
       nextSteps: [
         "Batteriespannung mit Multimeter prüfen (>12,4V)",
@@ -614,10 +612,10 @@ function createIntelligentDemo(problem, carDetails, aiModel, vin) {
       diagnosis: `[DEMO] Die Symptome "${problem}" bei Ihrem ${carDetails.make} ${carDetails.model}${vinInfo} deuten auf ein Motorproblem hin. Dies könnte verschiedene Ursachen haben, von Zündproblemen bis hin zu Kraftstoffsystemproblemen.`,
       confidence: aiModel === 'claude' ? 85 : 82,
       possibleCauses: [
-        { cause: "Defekte Zündkerzen", probability: 45, cost: "80-200€", commonFor: "Nach 60.000km normal" },
-        { cause: "Verstopfter Luftfilter", probability: 25, cost: "20-50€", commonFor: "Wartungsintervall" },
-        { cause: "Kraftstoffpumpe schwach", probability: 20, cost: "300-600€", commonFor: "Hochlaufleistung" },
-        { cause: "Lambdasonde defekt", probability: 10, cost: "150-400€", commonFor: "Nach 100.000km" }
+        { cause: "Defekte Zündkerzen", probability: 45, commonFor: "Nach 60.000km normal" },
+        { cause: "Verstopfter Luftfilter", probability: 25, commonFor: "Wartungsintervall" },
+        { cause: "Kraftstoffpumpe schwach", probability: 20, commonFor: "Hochlaufleistung" },
+        { cause: "Lambdasonde defekt", probability: 10, commonFor: "Nach 100.000km" }
       ],
       nextSteps: [
         "Fehlerspeicher mit OBD-Scanner auslesen",
@@ -636,9 +634,9 @@ function createIntelligentDemo(problem, carDetails, aiModel, vin) {
       diagnosis: `[DEMO] Das beschriebene Problem "${problem}" bei Ihrem ${carDetails.make} ${carDetails.model}${vinInfo} deutet auf ein Bremsenproblem hin. Dies erfordert sofortige Aufmerksamkeit aus Sicherheitsgründen.`,
       confidence: aiModel === 'claude' ? 90 : 87,
       possibleCauses: [
-        { cause: "Abgenutzte Bremsbeläge", probability: 60, cost: "150-300€", commonFor: "Normal alle 30-50.000km" },
-        { cause: "Verschlissene Bremsscheiben", probability: 25, cost: "200-500€", commonFor: "Nach Belagwechsel" },
-        { cause: "Festsitzender Bremssattel", probability: 15, cost: "100-250€", commonFor: "Ältere Fahrzeuge" }
+        { cause: "Abgenutzte Bremsbeläge", probability: 60, commonFor: "Normal alle 30-50.000km" },
+        { cause: "Verschlissene Bremsscheiben", probability: 25, commonFor: "Nach Belagwechsel" },
+        { cause: "Festsitzender Bremssattel", probability: 15, commonFor: "Ältere Fahrzeuge" }
       ],
       nextSteps: [
         "SOFORT Bremsen überprüfen lassen",
@@ -656,9 +654,9 @@ function createIntelligentDemo(problem, carDetails, aiModel, vin) {
     diagnosis: `[DEMO] Basierend auf Ihrer Beschreibung "${problem}" für Ihr ${carDetails.make} ${carDetails.model}${vinInfo} empfehle ich eine professionelle Diagnose zur genauen Problembestimmung.`,
     confidence: aiModel === 'claude' ? 78 : 75,
     possibleCauses: [
-      { cause: "Verschleißbedingte Komponente", probability: 50, cost: "100-400€", commonFor: "Altersbedingt" },
-      { cause: "Elektrisches Problem", probability: 30, cost: "80-250€", commonFor: "Moderne Fahrzeuge" },
-      { cause: "Wartung erforderlich", probability: 20, cost: "50-150€", commonFor: "Serviceintervall" }
+      { cause: "Verschleißbedingte Komponente", probability: 50, commonFor: "Altersbedingt" },
+      { cause: "Elektrisches Problem", probability: 30, commonFor: "Moderne Fahrzeuge" },
+      { cause: "Wartung erforderlich", probability: 20, commonFor: "Serviceintervall" }
     ],
     nextSteps: [
       "Fahrzeug von qualifizierter Werkstatt prüfen lassen",
@@ -676,8 +674,8 @@ function createFallbackAnalysis(content, aiModel) {
     diagnosis: content.length > 300 ? content.substring(0, 300) + '...' : content,
     confidence: aiModel === 'claude' ? 85 : 80,
     possibleCauses: [
-      { cause: "Häufigste Ursache lt. KI", probability: 70, cost: "150-350€", commonFor: "KI-Analyse" },
-      { cause: "Alternative Ursache", probability: 30, cost: "80-200€", commonFor: "Sekundär" }
+      { cause: "Häufigste Ursache lt. KI", probability: 70, commonFor: "KI-Analyse" },
+      { cause: "Alternative Ursache", probability: 30, commonFor: "Sekundär" }
     ],
     nextSteps: [
       "Professionelle Diagnose durchführen lassen",

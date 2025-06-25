@@ -1,6 +1,6 @@
-// utils/vinDecoder.js - Vereinfachte VIN-Dekodierung ohne Motorerkennung
+// VIN Decoder
 
-const SIMPLIFIED_VIN_DECODER = {
+const VIN_DECODER = {
   manufacturers: {
     // BMW
     'WBA': { make: 'BMW', country: 'Deutschland', type: 'PKW', plant: 'München/Dingolfing' },
@@ -18,7 +18,7 @@ const SIMPLIFIED_VIN_DECODER = {
     
     // Audi
     'WAU': { make: 'Audi', country: 'Deutschland', type: 'PKW', plant: 'Ingolstadt/Neckarsulm' },
-    'WA1': { make: 'Audi', country: 'Deutschland', type: 'A-Klasse/Kompakt', plant: 'Ingolstadt' },
+    'WA1': { make: 'Audi', country: 'Deutschland', type: 'Kompakt', plant: 'Ingolstadt' },
     'WAN': { make: 'Audi', country: 'Deutschland', type: 'e-tron/Elektro', plant: 'Brüssel' },
     
     // Volkswagen Group
@@ -136,11 +136,8 @@ const SIMPLIFIED_VIN_DECODER = {
       
       // Grundlegende technische Daten
       estimatedSpecs: getBasicSpecs(),
-      
-      // Vertrauenswerte
-      confidence: 'Mittel' // Da keine detaillierte Motorerkennung mehr
     };
   }
 };
 
-export default SIMPLIFIED_VIN_DECODER;
+export default VIN_DECODER;

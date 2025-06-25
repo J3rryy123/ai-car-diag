@@ -1,6 +1,6 @@
 // components/KFZDiagnosePlatform.js
 import React, { useState } from 'react';
-import ENHANCED_VIN_DECODER from '../utils/vinDecoder';
+import VIN_DECODER from '../utils/vinDecoder';
 import OBD2_DECODER from '../utils/obdDecoder';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
@@ -37,7 +37,7 @@ const KFZDiagnosePlatform = () => {
   const handleVinChange = (inputVin) => {
     setVin(inputVin);
     if (inputVin.length >= 17) {
-      const decoded = ENHANCED_VIN_DECODER.decodeVIN(inputVin);
+      const decoded = VIN_DECODER.decodeVIN(inputVin);
       setVinDecoded(decoded);
       if (decoded && decoded.isValid) {
         setCarDetails(prev => ({

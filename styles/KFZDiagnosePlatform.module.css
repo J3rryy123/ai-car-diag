@@ -693,7 +693,7 @@
     font-size: 0.8rem;
   }
 
-  /* Fügen Sie diese Styles zu Ihrer KFZDiagnosePlatform.module.css hinzu: */
+
 
 /* OBD2-spezifische Styles */
 .codeValid {
@@ -786,19 +786,6 @@
   color: #16a34a;
 }
 
-/* Historie-Updates für OBD2 */
-.historyItem[data-type="obd2"] {
-  border-left: 4px solid #059669;
-}
-
-.historyItem[data-type="obd2"]::before {
-  content: "🔧";
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  font-size: 1.5rem;
-}
-
 /* OBD2-spezifische Platzhalter */
 .placeholderCard.obd2 {
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
@@ -827,15 +814,15 @@
 
 /* Tab-Button Styling für OBD2 */
 .navButton:nth-child(2) {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  background: linear-gradient(135deg, #fff 0%, #fff 100%);
 }
 
 .navButton:nth-child(2):hover {
-  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  background: linear-gradient(135deg, #fff 0%, #fff 100%);
 }
 
 .navButton:nth-child(2).navButtonActive {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  background: linear-gradient(135deg, #fff 0%, #fff 100%);
   box-shadow: 0 4px 14px 0 rgba(5, 150, 105, 0.39);
 }
 
@@ -853,7 +840,7 @@
 
 /* OBD2-spezifische Card-Styles */
 .card.obd2 {
-  border-top: 4px solid #059669;
+  border-top: 4px solid #1316b1;
 }
 
 .card.obd2 .cardTitle::before {

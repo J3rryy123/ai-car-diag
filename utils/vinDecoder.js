@@ -1,5 +1,3 @@
-// VIN Decoder
-
 const VIN_DECODER = {
   manufacturers: {
     // BMW

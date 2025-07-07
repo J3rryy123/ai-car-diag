@@ -1,4 +1,3 @@
-// utils/obdDecoder.js
 const OBD2_DECODER = {
   decodeCode: (code) => {
     const codeMap = {

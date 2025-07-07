@@ -33,7 +33,7 @@ const KFZDiagnosePlatform = () => {
   const [error, setError] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
 
-  // VIN Dekodierung für Diagnose Tab
+  // VINDecoder for Diagnose Tab
   const handleVinChange = (inputVin) => {
     setVin(inputVin);
     if (inputVin.length >= 17) {
@@ -53,7 +53,7 @@ const KFZDiagnosePlatform = () => {
     }
   };
 
-  // VIN Dekodierung für OBD2 Tab
+  // VINDecoder for OBD2 Tab
   const handleObdVinChange = (inputVin) => {
     setObdVin(inputVin);
     if (inputVin.length >= 17) {
@@ -64,7 +64,7 @@ const KFZDiagnosePlatform = () => {
     }
   };
 
-  // OBD2 Code Dekodierung
+  // OBD2 Code Decoder
   const handleObdCodeChange = (inputCode) => {
     const cleanCode = inputCode.trim().toUpperCase();
     setObdCode(cleanCode);
@@ -170,7 +170,6 @@ const KFZDiagnosePlatform = () => {
       const data = await response.json();
       setObdResults(data.analysis);
       
-      // Debug-Informationen auch für OBD2 setzen
       setDebugInfo({
         mode: data.mode,
         debug: data.debug,
@@ -434,7 +433,7 @@ const KFZDiagnosePlatform = () => {
               <div className={styles.card}>
                 <h2 className={styles.cardTitle}>🔍 Problem beschreiben</h2>
 
-                {/* VIN Eingabe */}
+                {/* VIN ... */}
                 <div className={styles.formGroup}>
                   <label className={styles.label}>
                     Fahrzeug-Identifikationsnummer (VIN) - Optional
@@ -472,7 +471,7 @@ const KFZDiagnosePlatform = () => {
                   )}
                 </div>
 
-                {/* Fahrzeugdetails */}
+                {/* Car Details */}
                 <div className={styles.carDetailsGrid}>
                   <div className={styles.formGroup}>
                     <label className={styles.label}>Marke</label>
@@ -588,7 +587,7 @@ const KFZDiagnosePlatform = () => {
                   </div>
                 </div>
 
-                {/* Problembeschreibung */}
+                {/* Problem Description */}
                 <div className={styles.formGroup}>
                   <label className={styles.label}>Problembeschreibung</label>
                   <textarea
@@ -639,7 +638,7 @@ Z.B: Das Auto macht beim Starten ein klickendes Geräusch, aber der Motor spring
               <div className={styles.card}>
                 <h2 className={styles.cardTitle}>🔧 OBD2-Fehlercode Diagnose</h2>
 
-                {/* VIN Eingabe für OBD2 */}
+                {/* VIN ... für OBD2 */}
                 <div className={styles.formGroup}>
                   <label className={styles.label}>
                     Fahrzeug-Identifikationsnummer (VIN)
@@ -675,7 +674,7 @@ Z.B: Das Auto macht beim Starten ein klickendes Geräusch, aber der Motor spring
                   )}
                 </div>
 
-                {/* OBD2-Code Eingabe */}
+                {/* OBD2-Code ... */}
                 <div className={styles.formGroup}>
                   <label className={styles.label}>
                     OBD2-Fehlercode

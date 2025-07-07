@@ -6,13 +6,13 @@ export default async function handler(req, res) {
 
   const { type, problem, carDetails, aiModel, vin, vinDecoded, obdCode, obdVin, obdVinDecoded, codeInfo } = req.body;
 
-  // OBD2-Analyse
+  // OBD2
   if (type === 'obd2') {
     if (!obdCode || !codeInfo) {
       return res.status(400).json({ message: 'OBD2-Code und Code-Informationen sind erforderlich' });
     }
 
-    // Debug-Informationen für OBD2
+    // Debug-Informationen for OBD2
     const debugInfo = {
       hasClaudeKey: !!process.env.CLAUDE_API_KEY,
       hasOpenAIKey: !!process.env.OPENAI_API_KEY,
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       let errorDetails = null;
       let modelUsed = null;
 
-      // Versuche echte KI-Analyse
+      // try AI
       const aiModel = req.body.aiModel || 'claude'; // Default Claude für OBD2
       
       if ((aiModel === 'claude' && process.env.CLAUDE_API_KEY) || (aiModel === 'chatgpt' && process.env.OPENAI_API_KEY)) {
@@ -70,7 +70,7 @@ Bitte gib eine detaillierte OBD2-Analyse in folgendem JSON-Format zurück:
   "preventiveMeasures": "Vorbeugende Maßnahmen um diesen Fehler zu vermeiden"
 }`;
 
-        // Claude API versuchen (wenn Claude gewählt und API-Key vorhanden)
+        // Claude API 
         if (aiModel === 'claude' && process.env.CLAUDE_API_KEY) {
           const claudeModels = [
             'claude-3-5-sonnet-20241022',
@@ -118,7 +118,7 @@ Bitte gib eine detaillierte OBD2-Analyse in folgendem JSON-Format zurück:
                   }
                 } catch (parseError) {
                   console.error('Claude OBD2 JSON Parse Error:', parseError);
-                  // Bei Parse-Fehler fallback verwenden
+                  // fallback
                   analysis = createIntelligentOBD2Analysis(obdCode, codeInfo, obdVinDecoded, content);
                   apiUsed = 'claude-obd2-fallback';
                   modelUsed = model;
@@ -143,7 +143,7 @@ Bitte gib eine detaillierte OBD2-Analyse in folgendem JSON-Format zurück:
           }
         }
 
-        // OpenAI API versuchen (wenn ChatGPT gewählt und API-Key vorhanden)
+        // OpenAI API
         if (!analysis && aiModel === 'chatgpt' && process.env.OPENAI_API_KEY) {
           const openaiModels = ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'];
 
@@ -212,7 +212,7 @@ Bitte gib eine detaillierte OBD2-Analyse in folgendem JSON-Format zurück:
         }
       }
 
-      // Fallback zur Demo-Analyse
+      // Fallback 
       if (!analysis) {
         console.log('No AI analysis succeeded, falling back to demo mode');
         console.log('Error details:', errorDetails);
@@ -236,7 +236,7 @@ Bitte gib eine detaillierte OBD2-Analyse in folgendem JSON-Format zurück:
     } catch (error) {
       console.error('OBD2 Analysis error:', error);
       
-      // Fallback auch bei Fehlern
+      // Fallback
       const fallbackAnalysis = createOBD2Analysis(obdCode, codeInfo, obdVinDecoded);
       
       return res.status(200).json({ 
@@ -250,7 +250,7 @@ Bitte gib eine detaillierte OBD2-Analyse in folgendem JSON-Format zurück:
     }
   }
 
-  // Normale Diagnose
+  //Diagnose
   if (!problem || !carDetails) {
     return res.status(400).json({ message: 'Problem und Fahrzeugdaten sind erforderlich' });
   }
@@ -272,7 +272,7 @@ Bitte gib eine detaillierte OBD2-Analyse in folgendem JSON-Format zurück:
     let errorDetails = null;
     let modelUsed = null;
 
-    // Erweiterten Prompt mit VIN-Informationen erstellen
+    // Erweiterten Prompt with VIN
     let vehicleInfo = `${carDetails.make} ${carDetails.model} ${carDetails.year}`;
     if (carDetails.engineType) {
       vehicleInfo += `, Motor: ${carDetails.engineType}`;
@@ -303,8 +303,9 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
 }`;
 
     if (aiModel === 'claude' && process.env.CLAUDE_API_KEY) {
-      // Claude Modelle in Prioritätsreihenfolge
+      // Claude Models
       const claudeModels = [
+        'claude-sonnet-5-20250514',
         'claude-3-5-sonnet-20241022',
         'claude-3-5-sonnet-20240620',
         'claude-3-sonnet-20240229',
@@ -338,7 +339,6 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
             const data = await response.json();
             const content = data.content[0].text;
 
-            // Versuche JSON zu extrahieren
             try {
               const jsonMatch = content.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
@@ -346,7 +346,7 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
                 apiUsed = 'claude';
                 modelUsed = model;
                 console.log(`Claude API Success with model: ${model}`);
-                break; // Erfolgreich, stoppe die Schleife
+                break; 
               } else {
                 throw new Error('Kein JSON gefunden in Claude Response');
               }
@@ -362,13 +362,11 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
             const modelError = new Error(`Claude API ${response.status}: ${errorData?.error?.message || 'Unknown error'}`);
             console.error(`Claude API Error for model ${model}:`, modelError);
             
-            // Bei 400/401 Fehlern nicht weitere Modelle versuchen
             if (response.status === 400 || response.status === 401) {
               errorDetails = `Claude API Fehler: ${modelError.message}`;
               break;
             }
             
-            // Bei anderen Fehlern das nächste Modell versuchen
             if (model === claudeModels[claudeModels.length - 1]) {
               errorDetails = `Alle Claude-Modelle fehlgeschlagen. Letzter Fehler: ${modelError.message}`;
             }
@@ -381,7 +379,6 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
         }
       }
 
-      // Wenn kein Claude-Modell funktioniert hat
       if (!analysis) {
         analysis = createIntelligentDemo(problem, carDetails, aiModel, vin);
         apiUsed = 'demo-claude-error';
@@ -389,7 +386,7 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
       }
 
     } else if (aiModel === 'chatgpt' && process.env.OPENAI_API_KEY) {
-      // OpenAI Modelle in Prioritätsreihenfolge
+      // OpenAI Models
       const openaiModels = [
         'gpt-4o-mini',
         'gpt-4o',
@@ -425,7 +422,6 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
             const data = await response.json();
             const content = data.choices[0].message.content;
 
-            // Versuche JSON zu extrahieren
             try {
               const jsonMatch = content.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
@@ -433,7 +429,7 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
                 apiUsed = 'openai';
                 modelUsed = model;
                 console.log(`OpenAI API Success with model: ${model}`);
-                break; // Erfolgreich, stoppe die Schleife
+                break; 
               } else {
                 throw new Error('Kein JSON gefunden in OpenAI Response');
               }
@@ -449,13 +445,11 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
             const modelError = new Error(`OpenAI API ${response.status}: ${errorData?.error?.message || 'Unknown error'}`);
             console.error(`OpenAI API Error for model ${model}:`, modelError);
             
-            // Bei 400/401 Fehlern nicht weitere Modelle versuchen
             if (response.status === 400 || response.status === 401) {
               errorDetails = `OpenAI API Fehler: ${modelError.message}`;
               break;
             }
             
-            // Bei anderen Fehlern das nächste Modell versuchen
             if (model === openaiModels[openaiModels.length - 1]) {
               errorDetails = `Alle OpenAI-Modelle fehlgeschlagen. Letzter Fehler: ${modelError.message}`;
             }
@@ -468,7 +462,6 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
         }
       }
 
-      // Wenn kein OpenAI-Modell funktioniert hat
       if (!analysis) {
         analysis = createIntelligentDemo(problem, carDetails, aiModel, vin);
         apiUsed = 'demo-openai-error';
@@ -476,7 +469,6 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
       }
 
     } else {
-      // Demo-Modus (keine API-Keys vorhanden)
       analysis = createIntelligentDemo(problem, carDetails, aiModel, vin);
       apiUsed = `demo-${aiModel}`;
       errorDetails = aiModel === 'claude' ? 'Claude API-Key nicht verfügbar' : 'OpenAI API-Key nicht verfügbar';
@@ -494,7 +486,7 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
   } catch (error) {
     console.error('General analysis error:', error);
     
-    // Fallback-Analyse auch bei unerwarteten Fehlern
+    // Fallback
     const fallbackAnalysis = createIntelligentDemo(problem, carDetails, aiModel, vin);
     
     return res.status(200).json({
@@ -508,7 +500,6 @@ Bitte gib eine strukturierte Antwort in folgendem JSON-Format zurück:
   }
 }
 
-// Intelligente OBD2-Analyse mit KI-Fallback
 function createIntelligentOBD2Analysis(obdCode, codeInfo, vinDecoded, aiContent) {
   const vehicleInfo = vinDecoded ? ` für ${vinDecoded.make} ${vinDecoded.series} (${vinDecoded.year})` : '';
   
@@ -564,16 +555,15 @@ function createOBD2Analysis(obdCode, codeInfo, vinDecoded = null) {
   };
 }
 
-// Intelligente Demo-Analyse basierend auf Schlüsselwörtern
 function createIntelligentDemo(problem, carDetails, aiModel, vin) {
   const problemLower = problem.toLowerCase();
   const vinInfo = vin ? ` (VIN: ${vin})` : '';
   
-  // Erweiterte Fahrzeugspezifische Hinweise
+
   const getVehicleSpecificHint = () => {
     if (!vin) return null;
     
-    // Einfache VIN-basierte Hinweise (simuliert)
+   
     const wmi = vin.substring(0, 3).toUpperCase();
     const vinHints = {
       'WBA': 'BMW-Fahrzeuge dieser Serie sind bekannt für Probleme mit der Wasserpumpe ab 80.000km',
@@ -585,7 +575,7 @@ function createIntelligentDemo(problem, carDetails, aiModel, vin) {
     return vinHints[wmi] || 'Spezifische Herstellerinformationen für detailliertere Diagnose verfügbar';
   };
 
-  // Starter-Probleme
+  // Starter-Problems
   if (problemLower.includes('springt nicht an') || problemLower.includes('startet nicht') || problemLower.includes('anlasser')) {
     return {
       diagnosis: `[DEMO] Basierend auf Ihrer Beschreibung "${problem}" für Ihr ${carDetails.make} ${carDetails.model}${vinInfo} deutet dies auf ein Starterproblem hin. Das typische Klicken beim Startversuch weist auf einen defekten Anlasser oder schwache Batterie hin.`,
@@ -606,7 +596,7 @@ function createIntelligentDemo(problem, carDetails, aiModel, vin) {
     };
   }
   
-  // Motor-Probleme
+  // Engine-Problems
   if (problemLower.includes('motor') || problemLower.includes('ruckelt') || problemLower.includes('stottert')) {
     return {
       diagnosis: `[DEMO] Die Symptome "${problem}" bei Ihrem ${carDetails.make} ${carDetails.model}${vinInfo} deuten auf ein Motorproblem hin. Dies könnte verschiedene Ursachen haben, von Zündproblemen bis hin zu Kraftstoffsystemproblemen.`,
@@ -628,7 +618,7 @@ function createIntelligentDemo(problem, carDetails, aiModel, vin) {
     };
   }
   
-  // Bremsen-Probleme
+  // Break-Problems
   if (problemLower.includes('bremse') || problemLower.includes('quietscht') || problemLower.includes('schleift')) {
     return {
       diagnosis: `[DEMO] Das beschriebene Problem "${problem}" bei Ihrem ${carDetails.make} ${carDetails.model}${vinInfo} deutet auf ein Bremsenproblem hin. Dies erfordert sofortige Aufmerksamkeit aus Sicherheitsgründen.`,

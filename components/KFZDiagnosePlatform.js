@@ -398,9 +398,9 @@ const KFZDiagnosePlatform = () => {
           <div className={styles.headerLeft}>
             <div className={styles.headerIcon}>🚗</div>
             <div>
-              <h1 className={styles.title}>KFZ-Diagnose Platform</h1>
+              <h1 className={styles.title}>AI Car Diag</h1>
               <p className={styles.subtitle}>
-                KI-gestützte Fahrzeugdiagnose mit OBD2-Unterstützung
+                KI-gestützte Fahrzeugdiagnose 
               </p>
             </div>
           </div>
@@ -546,7 +546,6 @@ const KFZDiagnosePlatform = () => {
                         <div className={styles.aiIcon}>🤖</div>
                         <div className={styles.aiInfo}>
                           <div className={styles.aiName}>Claude</div>
-                          <div className={styles.aiProvider}>Anthropic</div>
                         </div>
                         <div className={styles.aiRadio}>
                           <input
@@ -559,9 +558,6 @@ const KFZDiagnosePlatform = () => {
                           />
                           <div className={styles.radioCustom}></div>
                         </div>
-                      </div>
-                      <div className={styles.aiDescription}>
-                        Spezialisiert auf detaillierte technische Analysen und präzise Fahrzeugdiagnosen
                       </div>
                       <div className={styles.aiFeatures}>
                         <span className={styles.aiFeature}>🔍 Detailanalyse</span>
@@ -577,7 +573,6 @@ const KFZDiagnosePlatform = () => {
                         <div className={styles.aiIcon}>🤖</div>
                         <div className={styles.aiInfo}>
                           <div className={styles.aiName}>ChatGPT</div>
-                          <div className={styles.aiProvider}>OpenAI</div>
                         </div>
                         <div className={styles.aiRadio}>
                           <input
@@ -590,9 +585,6 @@ const KFZDiagnosePlatform = () => {
                           />
                           <div className={styles.radioCustom}></div>
                         </div>
-                      </div>
-                      <div className={styles.aiDescription}>
-                        Vielseitige KI mit breitem Autowissen und praktischen Lösungsansätzen
                       </div>
                       <div className={styles.aiFeatures}>
                         <span className={styles.aiFeature}>💡 Praktische Tipps</span>
@@ -611,7 +603,7 @@ const KFZDiagnosePlatform = () => {
                     rows={4}
                     className={styles.textarea}
                     placeholder="Beschreiben Sie das Problem so detailliert wie möglich...
-Z.B: Das Auto macht beim Starten ein klickendes Geräusch, aber der Motor springt nicht an. Bei Dieselmotoren erwähnen Sie bitte auch AdBlue-Status oder DPF-Probleme..."
+Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor springt nicht an. Bei Dieselmotoren erwähnen Sie bitte auch AdBlue-Status oder DPF-Probleme..."
                   />
                 </div>
 
@@ -638,7 +630,7 @@ Z.B: Das Auto macht beim Starten ein klickendes Geräusch, aber der Motor spring
                   <div style={{fontSize: '4rem', marginBottom: '1rem'}}>🚗</div>
                   <h3>Bereit für die Diagnose</h3>
                   <p style={{color: '#6b7280'}}>
-                    Geben Sie Ihr KFZ-Problem ein, wählen Sie den Motortyp und nutzen Sie optional die VIN für detaillierte Fahrzeugdaten.
+                    Geben Sie Ihr Problem ein, wählen Sie den Motortyp und nutzen Sie optional die VIN für detaillierte Fahrzeugdaten.
                   </p>
                 </div>
               )}

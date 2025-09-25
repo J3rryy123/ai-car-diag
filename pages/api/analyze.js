@@ -92,10 +92,7 @@ Please provide a structured response in the following JSON format:
       // Try Claude API for OBD2
       if (process.env.CLAUDE_API_KEY && aiModel === 'claude') {
         const claudeModels = [
-          'claude-3-5-sonnet-20241022',
-          'claude-3-5-sonnet-20240620',
-          'claude-3-sonnet-20240229',
-          'claude-3-haiku-20240307'
+          'claude-sonnet-4-20250514'
         ];
 
         for (const model of claudeModels) {
@@ -343,10 +340,7 @@ Please provide a structured response in the following JSON format:
       // Try AI APIs if available for diagnose
       if (process.env.CLAUDE_API_KEY && aiModel === 'claude') {
         const claudeModels = [
-          'claude-3-5-sonnet-20241022',
-          'claude-3-5-sonnet-20240620',
-          'claude-3-sonnet-20240229',
-          'claude-3-haiku-20240307'
+         'claude-sonnet-4-20250514'
         ];
 
         for (const model of claudeModels) {

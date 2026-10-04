@@ -86,10 +86,7 @@ function buildObdPrompt(obdCode, codeInfo, obdVin, obdVinDecoded) {
 VIN: ${obdVin}
 VIN Analysis:
 - Manufacturer: ${clean(obdVinDecoded.manufacturer?.name) || 'Unknown'} (${clean(obdVinDecoded.manufacturer?.country) || 'Unknown'})
-- Vehicle Age: ${clean(String(obdVinDecoded.year?.age ?? '')) || 'Unknown'} years (Model Year: ${clean(String(obdVinDecoded.year?.modelYear ?? '')) || 'Unknown'})
-- Engine: ${clean(obdVinDecoded.engine?.fuelType) || 'Unknown'}
-- Configuration: ${clean(obdVinDecoded.engine?.configuration) || 'Unknown'}
-`;
+${obdVinDecoded.year?.modelYear ? `- Model Year: ${clean(String(obdVinDecoded.year.modelYear))}${obdVinDecoded.year.confidence === 'estimated' ? ' (estimated from VIN)' : ''}\n` : ''}`;
   }
 
   return `Analyze the following OBD2 diagnostic trouble code as an expert automotive technician:
@@ -142,14 +139,7 @@ function buildDiagnosePrompt(problem, carDetails, vin, vinDecoded) {
 VIN: ${vin}
 VIN Analysis:
 - Manufacturer: ${clean(vinDecoded.manufacturer?.name) || 'Unknown'} (${clean(vinDecoded.manufacturer?.country) || 'Unknown'})
-- Assembly Plant: ${clean(vinDecoded.manufacturer?.assemblyPlant) || 'Unknown'}
-- Vehicle Age: ${clean(String(vinDecoded.year?.age ?? '')) || 'Unknown'} years (Model Year: ${clean(String(vinDecoded.year?.modelYear ?? '')) || 'Unknown'})
-- Engine: ${clean(vinDecoded.engine?.name) || 'Unknown'} - ${clean(vinDecoded.engine?.fuelType) || 'Unknown'}
-- Engine Configuration: ${clean(vinDecoded.engine?.configuration) || 'Unknown'}
-- Displacement: ${clean(String(vinDecoded.engine?.displacement ?? '')) || 'Unknown'}
-- Turbo: ${vinDecoded.engine?.turbo ? 'Yes' : 'No'}
-- Market: ${clean(vinDecoded.market?.primaryMarket) || 'Unknown'}
-`;
+${vinDecoded.year?.modelYear ? `- Model Year: ${clean(String(vinDecoded.year.modelYear))}${vinDecoded.year.confidence === 'estimated' ? ' (estimated from VIN)' : ''}\n` : ''}`;
   }
 
   return `Analyze the following automotive problem as an expert mechanic:
@@ -300,7 +290,7 @@ function createOBD2Demo(obdCode, codeInfo, obdVin, obdVinDecoded) {
   // Vehicle-specific context from VIN
   let vehicleContext = '';
   if (obdVinDecoded && obdVinDecoded.isValid) {
-    vehicleContext = ` for your ${obdVinDecoded.year?.age || 'unknown'}-year-old ${obdVinDecoded.manufacturer?.name || 'vehicle'} with ${obdVinDecoded.engine?.fuelType || 'unknown'} engine`;
+    vehicleContext = ` for your ${obdVinDecoded.manufacturer?.name || 'vehicle'}${obdVinDecoded.year?.age != null ? ` (${obdVinDecoded.year.age} years old)` : ''}`;
   }
 
   // Enhanced analysis based on OBD code patterns
@@ -444,16 +434,11 @@ function createIntelligentDemo(problem, carDetails, vin, vinDecoded) {
     
     // Enhanced hints using decoded VIN data
     if (vinDecoded && vinDecoded.isValid) {
-      const { manufacturer, engine, year } = vinDecoded;
+      const { manufacturer, year } = vinDecoded;
       
       // Age-specific recommendations
       if (year?.age > 10) {
         hints.push(`Vehicle is ${year.age} years old - consider preventive maintenance for aging components`);
-      }
-      
-      // Engine-specific hints
-      if (engine?.turbo) {
-        hints.push('Turbocharged engine - pay attention to oil quality and change intervals');
       }
       
       // Manufacturer-specific patterns
@@ -465,31 +450,10 @@ function createIntelligentDemo(problem, carDetails, vin, vinDecoded) {
     return hints.length ? hints.join(' | ') : 'Vehicle-specific diagnostic information available';
   };
 
-  // Get recall information based on VIN
-  const getRecallInfo = () => {
-    if (!vinDecoded || !vinDecoded.isValid) return null;
-    
-    const { manufacturer, year } = vinDecoded;
-    const recalls = [];
-    
-    // Example recall database
-    if (manufacturer?.name === 'BMW' && year?.modelYear >= 2010 && year?.modelYear <= 2016) {
-      recalls.push('Timing chain inspection recommended');
-    }
-    if (manufacturer?.name === 'Mercedes-Benz' && year?.modelYear >= 2015 && year?.modelYear <= 2018) {
-      recalls.push('AdBlue system software update');
-    }
-    if (manufacturer?.name === 'Audi' && year?.modelYear >= 2012 && year?.modelYear <= 2017) {
-      recalls.push('Oil consumption monitoring program');
-    }
-    
-    return recalls.length > 0 ? recalls.join(', ') : null;
-  };
-
   // Add VIN context to diagnosis
   let vinSpecificContext = '';
   if (vinDecoded && vinDecoded.isValid) {
-    vinSpecificContext = ` Based on VIN analysis, this ${vinDecoded.year?.age || 'unknown'}-year-old ${vinDecoded.manufacturer?.name || 'vehicle'} with ${vinDecoded.engine?.fuelType || 'unknown'} engine shows`;
+    vinSpecificContext = ` Based on VIN analysis, this ${vinDecoded.manufacturer?.name || 'vehicle'}${vinDecoded.year?.age != null ? ` (${vinDecoded.year.age} years old)` : ''} shows`;
   }
 
   // Enhanced starter problems analysis
@@ -510,7 +474,6 @@ function createIntelligentDemo(problem, carDetails, vin, vinDecoded) {
       ],
       urgency: "High - Vehicle currently inoperable",
       vehicleSpecific: getVehicleSpecificHint(),
-      recalls: getRecallInfo(),
       maintenanceRecommendations: vinDecoded?.year?.age > 5 ? 'Consider comprehensive inspection due to vehicle age' : null
     };
   }
@@ -532,6 +495,6 @@ function createIntelligentDemo(problem, carDetails, vin, vinDecoded) {
     ],
     urgency: "Medium - Schedule service appointment",
     vehicleSpecific: getVehicleSpecificHint(),
-    recalls: getRecallInfo()
+    recalls: null
   };
 }

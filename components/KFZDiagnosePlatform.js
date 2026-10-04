@@ -1,5 +1,6 @@
 // main Component
 import React, { useState } from 'react';
+import Image from 'next/image';
 import VIN_DECODER from '../utils/vinDecoder';
 import OBD2_DECODER from '../utils/obdDecoder';
 import CaseHistory from './CaseHistory';
@@ -470,7 +471,14 @@ const KFZDiagnosePlatform = () => {
       <header className={styles.header}>
         <div className={styles.headerContent}>
           <div className={styles.headerLeft}>
-            <div className={styles.headerIcon}>🚗</div>
+            <Image
+              className={styles.headerLogo}
+              src="/logo.png"
+              alt="Smart Repair Service logo"
+              width={900}
+              height={493}
+              priority
+            />
             <div>
               <h1 className={styles.title}>AI Car Diag</h1>
               <p className={styles.subtitle}>

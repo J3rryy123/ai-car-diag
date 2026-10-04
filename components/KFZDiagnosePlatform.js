@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import VIN_DECODER from '../utils/vinDecoder';
 import OBD2_DECODER from '../utils/obdDecoder';
 import CaseHistory from './CaseHistory';
+import RegistrationScan from './RegistrationScan';
 import GuidedDiagnosis from './GuidedDiagnosis';
 import MultiCodeAnalysis from './MultiCodeAnalysis';
 import { addCase } from '../utils/caseHistory';
@@ -131,7 +132,7 @@ const KFZDiagnosePlatform = () => {
   const FORM_FUELS = { Benzin: 'benzin', Diesel: 'diesel', Hybrid: 'hybrid', Elektro: 'elektro' };
 
   // VINDecoder for Diagnose Tab
-  const handleVinChange = (inputVin) => {
+  const handleVinChange = (inputVin, { keepForm = false } = {}) => {
     setVin(inputVin);
     const cleaned = VIN_DECODER.cleanVIN(inputVin);
     if (cleaned.length < 17) {
@@ -142,12 +143,15 @@ const KFZDiagnosePlatform = () => {
     const decoded = VIN_DECODER.decodeVIN(cleaned);
     setVinDecoded(decoded);
     if (!decoded?.isValid) return;
-    // Nur sicher erkannte Werte ins Formular übernehmen
-    setCarDetails(prev => ({
-      ...prev,
-      make: decoded.manufacturer?.name || prev.make,
-      year: decoded.year?.modelYear ? String(decoded.year.modelYear) : prev.year
-    }));
+    // Nur sicher erkannte Werte ins Formular übernehmen (nicht nach Fahrzeugschein-Scan: dessen Daten gelten)
+    if (!keepForm) {
+      setCarDetails(prev => ({
+        ...prev,
+        make: decoded.manufacturer?.name || prev.make,
+        year: decoded.year?.modelYear ? String(decoded.year.modelYear) : prev.year
+      }));
+    }
+    if (keepForm) return; // Fahrzeugschein ist maßgeblich – keine widersprüchlichen Datenbankwerte nachladen
     enrichVin('diagnose', cleaned, decoded, setVinDecoded, (merged) => {
       setCarDetails(prev => ({
         ...prev,
@@ -169,6 +173,22 @@ const KFZDiagnosePlatform = () => {
     const decoded = VIN_DECODER.decodeVIN(cleaned);
     setObdVinDecoded(decoded);
     if (decoded?.isValid) enrichVin('obd', cleaned, decoded, setObdVinDecoded);
+  };
+
+  // Daten aus dem Fahrzeugschein-Scan übernehmen (Fahrzeugschein hat Vorrang vor VIN-Schätzungen)
+  const applyRegistration = (fields) => {
+    if (fields.vin) handleVinChange(fields.vin, { keepForm: true });
+    setCarDetails(prev => ({
+      ...prev,
+      make: fields.make || prev.make,
+      model: fields.model || fields.type || prev.model,
+      year: fields.firstRegistrationYear ? String(fields.firstRegistrationYear) : prev.year,
+      engineType: FORM_FUELS[fields.fuel] || prev.engineType
+    }));
+  };
+
+  const applyObdRegistration = (fields) => {
+    if (fields.vin) handleObdVinChange(fields.vin);
   };
 
   // OBD2 Code Decoder
@@ -604,6 +624,8 @@ const KFZDiagnosePlatform = () => {
               <div className={styles.card}>
                 <h2 className={styles.cardTitle}>🔍 Problem beschreiben</h2>
 
+                <RegistrationScan onResult={applyRegistration} styles={styles} />
+
                 {/* VIN ... */}
                 <div className={styles.formGroup}>
                   <label className={styles.label}>
@@ -746,6 +768,8 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
             <div>
               <div className={styles.card}>
                 <h2 className={styles.cardTitle}>🔧 OBD2-Fehlercode Diagnose</h2>
+
+                <RegistrationScan onResult={applyObdRegistration} styles={styles} />
 
                 {/* VIN ... für OBD2 */}
                 <div className={styles.formGroup}>

@@ -50,7 +50,9 @@ export function sendDbError(res, error) {
   } else if (error.status === 401 || error.status === 403) {
     message = 'Zugriff von Supabase abgelehnt. SUPABASE_SERVICE_ROLE_KEY prüfen (Key „service_role“ bzw. „Secret key“, nicht „anon“/„publishable“).';
   } else if (error.code === 'PGRST205' || error.code === '42P01') {
-    message = 'Tabelle „cases“ nicht gefunden. supabase/schema.sql im SQL Editor ausführen.';
+    message = 'Tabelle „cases“ oder „app_users“ nicht gefunden. supabase/schema.sql im SQL Editor ausführen.';
+  } else if (error.code === '42703' || error.code === 'PGRST204') {
+    message = 'Datenbank-Schema veraltet. supabase/schema.sql erneut im SQL Editor ausführen.';
   } else if (error.status === 404) {
     message = 'Supabase-Adresse nicht gefunden. SUPABASE_URL prüfen (Project-URL ohne Zusatz).';
   } else if (error.status) {

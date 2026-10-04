@@ -95,7 +95,7 @@ export function searchCases(cases, query) {
   const q = query.trim().toLowerCase();
   if (!q) return cases;
   return cases.filter((c) =>
-    [c.customer, c.note, c.vin, c.code, c.problem, c.vehicle]
+    [c.customer, c.note, c.vin, c.code, c.problem, c.vehicle, c.createdBy]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(q))
   );

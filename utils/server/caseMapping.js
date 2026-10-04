@@ -1,6 +1,6 @@
 // Abbildung zwischen dem flachen Fall-Objekt der App und der Tabelle `cases`.
 const TYPES = ['diagnose', 'obd2', 'guided', 'multi'];
-const COLUMNS = ['id', 'created_at', 'type', 'customer', 'note', 'vehicle', 'vin', 'code', 'problem', 'data'];
+const COLUMNS = ['id', 'created_at', 'type', 'customer', 'note', 'vehicle', 'vin', 'code', 'problem', 'created_by', 'data'];
 const MAX_DATA_BYTES = 200 * 1024;
 
 export const clip = (value, max) => (typeof value === 'string' ? value.slice(0, max) : '');
@@ -26,6 +26,6 @@ export function toRow(c) {
 
 export function fromRow(row) {
   const flat = {};
-  for (const key of COLUMNS) if (key !== 'data' && key !== 'created_at') flat[key] = row[key];
-  return { ...row.data, ...flat, createdAt: row.created_at };
+  for (const key of COLUMNS) if (!['data', 'created_at', 'created_by'].includes(key)) flat[key] = row[key];
+  return { ...row.data, ...flat, createdBy: row.created_by || '', createdAt: row.created_at };
 }

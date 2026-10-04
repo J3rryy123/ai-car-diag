@@ -18,8 +18,8 @@ Alle Werte werden als Umgebungsvariablen gesetzt (lokal in `.env.local`, auf Ver
 
 | Variable | Zweck |
 | --- | --- |
-| `APP_PASSWORD` | Gemeinsames Passwort für den Zugriff. In Produktion zwingend setzen, sonst bleibt der Verlauf gesperrt. Ohne Passwort ist die App offen (nur lokal gedacht). |
-| `SESSION_SECRET` | Optional, signiert die Anmeldung (sonst aus `APP_PASSWORD` abgeleitet) |
+| `APP_PASSWORD` | Mit Datenbank: Einrichtungscode für den ersten Administrator (in Produktion zwingend). Ohne Datenbank: gemeinsames Passwort für alle. Ohne beides ist die App offen (nur lokal gedacht). |
+| `SESSION_SECRET` | Optional, signiert die Anmeldung (sonst aus `APP_PASSWORD`/Service-Key abgeleitet) |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Datenbank für den Diagnoseverlauf |
 | `CLAUDE_API_KEY` | Anthropic-Key für die KI-Analyse (sonst Demo-Modus) |
 | `CLAUDE_MODEL` | optional, Modell überschreiben |
@@ -30,6 +30,16 @@ Alle Werte werden als Umgebungsvariablen gesetzt (lokal in `.env.local`, auf Ver
 2. Im *SQL Editor* den Inhalt von `supabase/schema.sql` ausführen.
 3. Unter *Project Settings → API* die Project-URL und den `service_role`-Key kopieren und als `SUPABASE_URL` bzw. `SUPABASE_SERVICE_ROLE_KEY` setzen. Der Key gehört nur auf den Server und darf nie öffentlich werden.
 4. `APP_PASSWORD` setzen und neu deployen.
+
+## Benutzerverwaltung
+
+Sobald die Datenbank konfiguriert ist, melden sich Personen mit **Benutzername + Passwort** an (Passwörter werden nur als scrypt-Hash gespeichert).
+
+1. `supabase/schema.sql` (erneut) ausführen – legt die Tabelle `app_users` an und ergänzt `cases.created_by`.
+2. Beim ersten Aufruf erscheint die **Ersteinrichtung**: Administrator anlegen. Als Einrichtungscode dient `APP_PASSWORD`.
+3. Über den Namen oben rechts (👤) öffnet der Administrator die **Benutzerverwaltung**: Benutzer anlegen, Passwort setzen, Rolle ändern, deaktivieren, löschen. Jeder kann dort sein eigenes Passwort ändern.
+
+Rollen: *Administrator* (inkl. Benutzerverwaltung) und *Mitarbeiter*. Der Diagnoseverlauf ist für alle gemeinsam sichtbar; bei jedem Fall steht, wer ihn angelegt hat. Ohne Datenbank bleibt es beim gemeinsamen Passwort.
 
 Ohne Datenbank speichert die App den Verlauf lokal im Browser. Sobald die Datenbank konfiguriert ist, lassen sich lokale Fälle im Verlauf-Tab mit einem Klick übernehmen.
 

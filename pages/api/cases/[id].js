@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   if (!dbConfigured()) {
     return res.status(503).json({ code: 'db_not_configured', message: 'Datenbank ist nicht konfiguriert.' });
   }
-  if (!requireAuth(req, res, { strict: true })) return;
+  if (!(await requireAuth(req, res, { strict: true }))) return;
 
   const { id } = req.query;
   if (!UUID.test(id)) return res.status(400).json({ message: 'Ungültige ID.' });

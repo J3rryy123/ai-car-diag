@@ -470,7 +470,7 @@ const KFZDiagnosePlatform = () => {
       <header className={styles.header}>
         <div className={styles.headerContent}>
           <div className={styles.headerLeft}>
-            <div className={styles.headerIcon}>🚗</div>
+            <img className={styles.logo} src="/logo.png" alt="Smart Repair Service" />
             <div>
               <h1 className={styles.title}>AI Car Diag</h1>
               <p className={styles.subtitle}>

@@ -18,9 +18,9 @@ const MultiCodeAnalysis = ({ initialCase, onSave }) => {
     setResult(valid.length ? analyzeCodes(valid) : null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const codes = result.entries.map((e) => e.code);
-    onSave({
+    const ok = await onSave({
       type: 'multi',
       codes,
       code: codes.join(' '),
@@ -28,7 +28,7 @@ const MultiCodeAnalysis = ({ initialCase, onSave }) => {
       problem: `${codes.length} Fehlercodes`,
       result: { summary: result.correlations.map((c) => c.title).join('; ') || 'Keine Zusammenhänge erkannt' }
     });
-    setSaved(true);
+    setSaved(ok);
   };
 
   return (

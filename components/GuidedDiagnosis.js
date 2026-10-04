@@ -55,8 +55,8 @@ const GuidedDiagnosis = ({ initialCase, onSave }) => {
   const failed = steps.filter((s) => progress[s.id]?.status === 'fail');
   const finished = done === steps.length;
 
-  const handleSave = () => {
-    onSave({
+  const handleSave = async () => {
+    const ok = await onSave({
       type: 'guided',
       procedureId: procedure.id,
       vehicle,
@@ -68,7 +68,7 @@ const GuidedDiagnosis = ({ initialCase, onSave }) => {
           : finished ? 'Alle Prüfschritte ohne Auffälligkeit' : 'Prüfung nicht abgeschlossen'
       }
     });
-    setSaved(true);
+    setSaved(ok);
   };
 
   return (

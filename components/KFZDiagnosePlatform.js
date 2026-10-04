@@ -124,7 +124,7 @@ const KFZDiagnosePlatform = () => {
 
       const data = await response.json();
       setResults(data.analysis);
-      addCase({
+      saveCase({
         type: 'diagnose',
         vehicle: [carDetails.make, carDetails.model, carDetails.year].filter(Boolean).join(' '),
         vin: vin || '',
@@ -132,7 +132,6 @@ const KFZDiagnosePlatform = () => {
         carDetails,
         result: data.analysis
       });
-      setHistoryVersion(v => v + 1);
       setDebugInfo({
         mode: data.mode,
         debug: data.debug,
@@ -190,7 +189,7 @@ const KFZDiagnosePlatform = () => {
 
       const data = await response.json();
       setObdResults(data.analysis);
-      addCase({
+      saveCase({
         type: 'obd2',
         code: obdCode.toUpperCase(),
         vehicle: obdVinDecoded?.isValid
@@ -200,7 +199,6 @@ const KFZDiagnosePlatform = () => {
         problem: obdCodeDecoded?.description || '',
         result: data.analysis
       });
-      setHistoryVersion(v => v + 1);
       
       setDebugInfo({
         mode: data.mode,
@@ -214,6 +212,18 @@ const KFZDiagnosePlatform = () => {
       setError(err.message || 'Fehler bei der OBD2-Analyse. Bitte versuchen Sie es erneut.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fall im Verlauf speichern (Datenbank, sonst lokal)
+  const saveCase = async (entry) => {
+    try {
+      await addCase(entry);
+      setHistoryVersion(v => v + 1);
+      return true;
+    } catch (err) {
+      setError(err.message || 'Fall konnte nicht im Verlauf gespeichert werden.');
+      return false;
     }
   };
 
@@ -716,7 +726,7 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
           <MultiCodeAnalysis
             key={multiKey}
             initialCase={multiCase}
-            onSave={(entry) => { addCase(entry); setHistoryVersion(v => v + 1); }}
+            onSave={saveCase}
           />
         )}
 
@@ -725,7 +735,7 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
           <GuidedDiagnosis
             key={guidedKey}
             initialCase={guidedCase}
-            onSave={(entry) => { addCase(entry); setHistoryVersion(v => v + 1); }}
+            onSave={saveCase}
           />
         )}
 

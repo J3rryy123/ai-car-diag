@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import VIN_DECODER from '../utils/vinDecoder';
 import OBD2_DECODER from '../utils/obdDecoder';
+import CaseHistory from './CaseHistory';
+import { addCase } from '../utils/caseHistory';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
 const KFZDiagnosePlatform = () => {
@@ -32,6 +34,7 @@ const KFZDiagnosePlatform = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
+  const [historyVersion, setHistoryVersion] = useState(0);
 
   // VINDecoder for Diagnose Tab
  const handleVinChange = (inputVin) => {
@@ -115,6 +118,15 @@ const KFZDiagnosePlatform = () => {
 
       const data = await response.json();
       setResults(data.analysis);
+      addCase({
+        type: 'diagnose',
+        vehicle: [carDetails.make, carDetails.model, carDetails.year].filter(Boolean).join(' '),
+        vin: vin || '',
+        problem,
+        carDetails,
+        result: data.analysis
+      });
+      setHistoryVersion(v => v + 1);
       setDebugInfo({
         mode: data.mode,
         debug: data.debug,
@@ -172,6 +184,17 @@ const KFZDiagnosePlatform = () => {
 
       const data = await response.json();
       setObdResults(data.analysis);
+      addCase({
+        type: 'obd2',
+        code: obdCode.toUpperCase(),
+        vehicle: obdVinDecoded?.isValid
+          ? [obdVinDecoded.manufacturer?.name, obdVinDecoded.year?.modelYear].filter(Boolean).join(' ')
+          : '',
+        vin: obdVin || '',
+        problem: obdCodeDecoded?.description || '',
+        result: data.analysis
+      });
+      setHistoryVersion(v => v + 1);
       
       setDebugInfo({
         mode: data.mode,
@@ -185,6 +208,24 @@ const KFZDiagnosePlatform = () => {
       setError(err.message || 'Fehler bei der OBD2-Analyse. Bitte versuchen Sie es erneut.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fall aus dem Verlauf wieder öffnen
+  const openCase = (c) => {
+    setError(null);
+    setDebugInfo(null);
+    if (c.type === 'obd2') {
+      handleObdVinChange(c.vin || '');
+      handleObdCodeChange(c.code || '');
+      setObdResults(c.result);
+      setActiveTab('obd2');
+    } else {
+      handleVinChange(c.vin || '');
+      setCarDetails(c.carDetails || { make: '', model: '', year: '', engineType: '' });
+      setProblem(c.problem || '');
+      setResults(c.result);
+      setActiveTab('diagnose');
     }
   };
 
@@ -417,6 +458,12 @@ const KFZDiagnosePlatform = () => {
             >
               🔧 OBD2-Diagnose
             </button>
+            <button
+              className={`${styles.navButton} ${activeTab === 'history' ? styles.navButtonActive : ''}`}
+              onClick={() => setActiveTab('history')}
+            >
+              🗂️ Verlauf
+            </button>
           </nav>
         </div>
       </header>
@@ -636,6 +683,11 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
               )}
             </div>
           </div>
+        )}
+
+        {/* Verlauf Tab */}
+        {activeTab === 'history' && (
+          <CaseHistory refreshKey={historyVersion} onOpen={openCase} />
         )}
 
         {/* OBD2 Tab */}

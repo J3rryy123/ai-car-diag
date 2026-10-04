@@ -303,7 +303,10 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
-  if (!(await requireAuth(req, res))) return;
+  const session = await requireAuth(req, res);
+  if (!session) return;
+  // Technische Details (Modell, Umgebung) nur für Administratoren bzw. ohne Anmeldeschutz (lokal)
+  const debugAllowed = session.user?.role === 'admin' || session.mode === 'open';
 
   const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
   if (isRateLimited(ip)) {
@@ -324,7 +327,7 @@ export default async function handler(req, res) {
     const obdVinDecoded = obdVin ? body.obdVinDecoded : null;
     const registration = cleanRegistration(body.registration, obdVin);
 
-    return respond(res, debug, {
+    return respond(res, debug, debugAllowed, {
       tool: OBD_TOOL,
       suffix: '-obd2',
       prompt: buildObdPrompt(obdCode, codeInfo, obdVin, obdVinDecoded, registration),
@@ -348,7 +351,7 @@ export default async function handler(req, res) {
   const vinDecoded = vin ? body.vinDecoded : null;
   const registration = cleanRegistration(body.carDetails?.registration, vin);
 
-  return respond(res, debug, {
+  return respond(res, debug, debugAllowed, {
     tool: DIAGNOSE_TOOL,
     suffix: '',
     prompt: buildDiagnosePrompt(problem, carDetails, vin, vinDecoded, registration),
@@ -358,13 +361,19 @@ export default async function handler(req, res) {
   });
 }
 
-async function respond(res, debug, { tool, suffix, prompt, fallback, demo, demoMode }) {
+async function respond(res, debug, debugAllowed, { tool, suffix, prompt, fallback, demo, demoMode }) {
+  const reply = ({ debug: details, modelUsed, ...rest }) =>
+    res.status(200).json({
+      ...rest,
+      ...(debugAllowed ? { debug: details, modelUsed } : {}),
+      debugAllowed,
+    });
   try {
     const result = await runAI({ prompt, tool, suffix, fallback });
     if (result?.analysis) {
-      return res.status(200).json({ ...result, debug, timestamp: new Date().toISOString() });
+      return reply({ ...result, debug, timestamp: new Date().toISOString() });
     }
-    return res.status(200).json({
+    return reply({
       analysis: demo(),
       demo: true,
       demoReason: result?.error ? 'error' : 'no_api_key',
@@ -376,7 +385,7 @@ async function respond(res, debug, { tool, suffix, prompt, fallback, demo, demoM
     });
   } catch (error) {
     console.error('Analysis error:', error);
-    return res.status(200).json({
+    return reply({
       analysis: demo(),
       demo: true,
       demoReason: 'error',

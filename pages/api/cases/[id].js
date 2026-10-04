@@ -1,5 +1,5 @@
 import { requireAuth } from '../../../utils/server/auth';
-import { db, dbConfigured } from '../../../utils/server/supabase';
+import { db, dbConfigured, sendDbError } from '../../../utils/server/supabase';
 import { fromRow, clip } from '../../../utils/server/caseMapping';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,6 +31,6 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ message: 'Method not allowed' });
   } catch (error) {
-    return res.status(502).json({ message: 'Datenbank nicht erreichbar.' });
+    return sendDbError(res, error);
   }
 }

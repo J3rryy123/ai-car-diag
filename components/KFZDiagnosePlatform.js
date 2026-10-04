@@ -186,7 +186,7 @@ const KFZDiagnosePlatform = () => {
         type: 'diagnose',
         problem,
         carDetails,
-        vin: vin || null,
+        vin: VIN_DECODER.cleanVIN(vin) || null,
         vinDecoded: vinDecoded || null
       };
 
@@ -249,7 +249,7 @@ const KFZDiagnosePlatform = () => {
       const requestData = {
         type: 'obd2',
         obdCode: obdCode.toUpperCase(),
-        obdVin: obdVin || null,
+        obdVin: VIN_DECODER.cleanVIN(obdVin) || null,
         obdVinDecoded: obdVinDecoded || null,
         codeInfo: obdCodeDecoded
       };

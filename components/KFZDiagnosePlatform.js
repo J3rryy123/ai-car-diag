@@ -1,5 +1,5 @@
 // main Component
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import VIN_DECODER from '../utils/vinDecoder';
 import OBD2_DECODER from '../utils/obdDecoder';
 import CaseHistory from './CaseHistory';
@@ -15,6 +15,45 @@ const NAV_ITEMS = [
   { id: 'guided', icon: '🧭', label: 'Geführte Suche', short: 'Geführt' },
   { id: 'history', icon: '🗂️', label: 'Verlauf', short: 'Verlauf' }
 ];
+
+// Anzeige des VIN-Ergebnisses: zeigt nur, was tatsächlich erkannt wurde
+function VinInfo({ decoded, styles: s }) {
+  if (!decoded) return null;
+  if (!decoded.isValid) {
+    return (
+      <div className={`${s.vinInfo} ${s.vinInfoInvalid}`}>
+        <div style={{color: '#f87171'}}>❌ {decoded.error || 'Ungültige VIN'}</div>
+      </div>
+    );
+  }
+  const { manufacturer, year, model, engine } = decoded;
+  const engineParts = [engine?.displacement, engine?.fuelType, engine?.power, engine?.name].filter(Boolean);
+  const hint = {
+    loading: 'Modell- und Motordaten werden abgefragt …',
+    none: 'Zu dieser VIN liegen keine Modell-/Motordaten vor – bitte laut Fahrzeugschein ergänzen.',
+    unavailable: 'Fahrzeugdatenbank nicht erreichbar – bitte Modell und Motor manuell angeben.'
+  }[decoded.lookup];
+  return (
+    <div className={`${s.vinInfo} ${s.vinInfoValid}`}>
+      <div><strong>Hersteller:</strong> {manufacturer?.name} ({manufacturer?.country})</div>
+      {model?.series && <div><strong>Modell:</strong> {model.series}</div>}
+      {year?.modelYear && (
+        <div>
+          <strong>Baujahr:</strong> {year.modelYear}
+          {year.confidence === 'estimated' ? ' (Schätzung aus VIN-Stelle 10)' : ''}
+          {year.age != null ? ` · ${year.age} Jahre alt` : ''}
+        </div>
+      )}
+      {engineParts.length > 0 && <div><strong>Motor:</strong> {engineParts.join(' · ')}</div>}
+      {hint && <div style={{color: '#9ca3af', fontSize: '0.85em'}}>{hint}</div>}
+      {decoded.lookup === 'done' && (
+        <div style={{color: '#9ca3af', fontSize: '0.85em'}}>
+          Quelle: {decoded.dataSource}. Bitte mit dem Fahrzeugschein abgleichen.
+        </div>
+      )}
+    </div>
+  );
+}
 
 const KFZDiagnosePlatform = () => {
   // Tab Management
@@ -49,39 +88,74 @@ const KFZDiagnosePlatform = () => {
   const [multiCase, setMultiCase] = useState(null);
   const [multiKey, setMultiKey] = useState(0);
 
+  // Modell-/Motordaten aus der Fahrzeugdatenbank nachladen (lokale Erkennung bleibt als Fallback)
+  const lookupSeq = useRef({ diagnose: 0, obd: 0 });
+  const enrichVin = async (target, cleaned, local, setDecoded, onMerged) => {
+    const seq = ++lookupSeq.current[target];
+    setDecoded({ ...local, lookup: 'loading' });
+    try {
+      const response = await fetch('/api/vin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vin: cleaned })
+      });
+      if (seq !== lookupSeq.current[target]) return; // veraltete Antwort
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const { found, data } = await response.json();
+      if (!found) {
+        setDecoded({ ...local, lookup: 'none' });
+        return;
+      }
+      const merged = { ...VIN_DECODER.mergeRemote(local, data), lookup: 'done' };
+      setDecoded(merged);
+      onMerged?.(merged);
+    } catch {
+      if (seq === lookupSeq.current[target]) setDecoded({ ...local, lookup: 'unavailable' });
+    }
+  };
+
+  const FORM_FUELS = { Benzin: 'benzin', Diesel: 'diesel', Hybrid: 'hybrid', Elektro: 'elektro' };
+
   // VINDecoder for Diagnose Tab
- const handleVinChange = (inputVin) => {
-  setVin(inputVin);
-  if (inputVin.length >= 17) {
-    const decoded = VIN_DECODER.decodeVIN(inputVin);
+  const handleVinChange = (inputVin) => {
+    setVin(inputVin);
+    const cleaned = VIN_DECODER.cleanVIN(inputVin);
+    if (cleaned.length < 17) {
+      lookupSeq.current.diagnose++;
+      setVinDecoded(null);
+      return;
+    }
+    const decoded = VIN_DECODER.decodeVIN(cleaned);
     setVinDecoded(decoded);
-    if (decoded && decoded.isValid) {
+    if (!decoded?.isValid) return;
+    // Nur sicher erkannte Werte ins Formular übernehmen
+    setCarDetails(prev => ({
+      ...prev,
+      make: decoded.manufacturer?.name || prev.make,
+      year: decoded.year?.modelYear ? String(decoded.year.modelYear) : prev.year
+    }));
+    enrichVin('diagnose', cleaned, decoded, setVinDecoded, (merged) => {
       setCarDetails(prev => ({
         ...prev,
-   
-        make: decoded.manufacturer?.name !== 'Unknown' ? decoded.manufacturer.name : prev.make,
-        model: decoded.model?.series || prev.model,
-        year: decoded.year?.modelYear !== 'Unknown' ? decoded.year.modelYear.toString() : prev.year,
-        engineType: decoded.engine?.fuelType || prev.engineType
+        model: merged.model?.series || prev.model,
+        engineType: FORM_FUELS[merged.engine?.fuelType] || prev.engineType
       }));
-    } else {
-      setVinDecoded(decoded);
-    }
-  } else {
-    setVinDecoded(null);
-  }
-};
+    });
+  };
 
   // VINDecoder for OBD2 Tab
   const handleObdVinChange = (inputVin) => {
-  setObdVin(inputVin);
-  if (inputVin.length >= 17) {
-    const decoded = VIN_DECODER.decodeVIN(inputVin);
+    setObdVin(inputVin);
+    const cleaned = VIN_DECODER.cleanVIN(inputVin);
+    if (cleaned.length < 17) {
+      lookupSeq.current.obd++;
+      setObdVinDecoded(null);
+      return;
+    }
+    const decoded = VIN_DECODER.decodeVIN(cleaned);
     setObdVinDecoded(decoded);
-  } else {
-    setObdVinDecoded(null);
-  }
-};
+    if (decoded?.isValid) enrichVin('obd', cleaned, decoded, setObdVinDecoded);
+  };
 
   // OBD2 Code Decoder
   const handleObdCodeChange = (inputCode) => {
@@ -525,39 +599,10 @@ const KFZDiagnosePlatform = () => {
                       vinDecoded?.isValid === false ? styles.vinInvalid : ''
                     }`}
                     placeholder="z.B. WBAFR9C50BC123456 (17 Zeichen)"
-                    maxLength="17"
+                    maxLength="24"
                   />
                   
-                  {vinDecoded && (
-                    <div className={`${styles.vinInfo} ${
-                      vinDecoded.isValid ? styles.vinInfoValid : styles.vinInfoInvalid
-                    }`}>
-                      {vinDecoded.isValid ? (
-                        <div>
-                          {/* Fixed: Access specific properties instead of rendering objects */}
-                          <div><strong>Manufacturer:</strong> {vinDecoded.manufacturer?.name || 'Unknown'}</div>
-                          <div><strong>Model:</strong> {vinDecoded.model?.series || 'Unknown'}</div>
-                          <div><strong>Year:</strong> {vinDecoded.year?.modelYear || 'Unknown'}</div>
-                          <div><strong>Age:</strong> {vinDecoded.year?.age ? `${vinDecoded.year.age} years` : 'Unknown'}</div>
-                          <div><strong>Country:</strong> {vinDecoded.manufacturer?.country || 'Unknown'}</div>
-                          
-                          {/* Optional: Show additional engine info if available */}
-                          {vinDecoded.engine && (
-                            <div><strong>Engine:</strong> {vinDecoded.engine.displacement || 'Unknown'}</div>
-                          )}
-                          
-                          {/* Optional: Show decoding confidence */}
-                          {vinDecoded.year?.decodingMethod && (
-                            <div><strong>Decoding Method:</strong> {vinDecoded.year.decodingMethod}</div>
-                          )}
-                        </div>
-                      ) : (
-                        <div style={{color: '#f87171'}}>
-                          ❌ {vinDecoded.error || 'Invalid VIN'}
-                        </div>
-                      )}
-                  </div>
-                  )}
+                  <VinInfo decoded={vinDecoded} styles={styles} />
                 </div>
 
                 {/* Car Details */}
@@ -697,43 +742,10 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
                       obdVinDecoded?.isValid === false ? styles.vinInvalid : ''
                     }`}
                     placeholder="z.B. WBAFR9C50BC123456 (17 Zeichen)"
-                    maxLength="17"
+                    maxLength="24"
                   />
                   
-                  {obdVinDecoded && (
-                    <div className={`${styles.vinInfo} ${
-                      obdVinDecoded.isValid ? styles.vinInfoValid : styles.vinInfoInvalid
-                    }`}>
-                      {obdVinDecoded.isValid ? (
-                        <div>
-                          {/* Fixed: Access specific properties instead of rendering objects */}
-                          <div>
-                            <strong>Fahrzeug:</strong> {obdVinDecoded.manufacturer?.name || 'Unknown'} {obdVinDecoded.model?.series || 'Unknown'}
-                          </div>
-                          <div>
-                            <strong>Baujahr:</strong> {obdVinDecoded.year?.modelYear || 'Unknown'}
-                          </div>
-                          
-                          {/* Optional: Show additional info */}
-                          {obdVinDecoded.year?.age && (
-                            <div>
-                              <strong>Alter:</strong> {obdVinDecoded.year.age} Jahre
-                            </div>
-                          )}
-                          
-                          {obdVinDecoded.engine?.fuelType && (
-                            <div>
-                              <strong>Kraftstoff:</strong> {obdVinDecoded.engine.fuelType}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div style={{color: '#f87171'}}>
-                          ❌ {obdVinDecoded.error || 'Invalid VIN'}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <VinInfo decoded={obdVinDecoded} styles={styles} />
                 </div>
 
                 {/* OBD2-Code ... */}

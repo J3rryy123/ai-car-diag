@@ -4,6 +4,7 @@ import VIN_DECODER from '../utils/vinDecoder';
 import OBD2_DECODER from '../utils/obdDecoder';
 import CaseHistory from './CaseHistory';
 import GuidedDiagnosis from './GuidedDiagnosis';
+import MultiCodeAnalysis from './MultiCodeAnalysis';
 import { addCase } from '../utils/caseHistory';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
@@ -38,6 +39,8 @@ const KFZDiagnosePlatform = () => {
   const [historyVersion, setHistoryVersion] = useState(0);
   const [guidedCase, setGuidedCase] = useState(null);
   const [guidedKey, setGuidedKey] = useState(0);
+  const [multiCase, setMultiCase] = useState(null);
+  const [multiKey, setMultiKey] = useState(0);
 
   // VINDecoder for Diagnose Tab
  const handleVinChange = (inputVin) => {
@@ -218,7 +221,11 @@ const KFZDiagnosePlatform = () => {
   const openCase = (c) => {
     setError(null);
     setDebugInfo(null);
-    if (c.type === 'guided') {
+    if (c.type === 'multi') {
+      setMultiCase(c);
+      setMultiKey(k => k + 1);
+      setActiveTab('multi');
+    } else if (c.type === 'guided') {
       setGuidedCase(c);
       setGuidedKey(k => k + 1);
       setActiveTab('guided');
@@ -466,6 +473,12 @@ const KFZDiagnosePlatform = () => {
               🔧 OBD2-Diagnose
             </button>
             <button
+              className={`${styles.navButton} ${activeTab === 'multi' ? styles.navButtonActive : ''}`}
+              onClick={() => { if (activeTab !== 'multi') { setMultiCase(null); setMultiKey(k => k + 1); } setActiveTab('multi'); }}
+            >
+              📚 Mehrere Codes
+            </button>
+            <button
               className={`${styles.navButton} ${activeTab === 'guided' ? styles.navButtonActive : ''}`}
               onClick={() => { if (activeTab !== 'guided') { setGuidedCase(null); setGuidedKey(k => k + 1); } setActiveTab('guided'); }}
             >
@@ -696,6 +709,15 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
               )}
             </div>
           </div>
+        )}
+
+        {/* Mehrere Fehlercodes Tab */}
+        {activeTab === 'multi' && (
+          <MultiCodeAnalysis
+            key={multiKey}
+            initialCase={multiCase}
+            onSave={(entry) => { addCase(entry); setHistoryVersion(v => v + 1); }}
+          />
         )}
 
         {/* Geführte Fehlersuche Tab */}

@@ -12,12 +12,30 @@ npm install
 npm run dev     # http://localhost:3000
 ```
 
-## Konfiguration (`.env.local`)
+## Konfiguration
+
+Alle Werte werden als Umgebungsvariablen gesetzt (lokal in `.env.local`, auf Vercel unter *Settings → Environment Variables*). Eine Vorlage steht in `.env.example`.
 
 | Variable | Zweck |
 | --- | --- |
-| `CLAUDE_API_KEY` | Anthropic-Key für die Claude-Analyse |
-| `OPENAI_API_KEY` | OpenAI-Key für die ChatGPT-Analyse |
-| `CLAUDE_MODEL` / `OPENAI_MODEL` | optional, Modell überschreiben |
+| `APP_PASSWORD` | Gemeinsames Passwort für den Zugriff. In Produktion zwingend setzen, sonst bleibt der Verlauf gesperrt. Ohne Passwort ist die App offen (nur lokal gedacht). |
+| `SESSION_SECRET` | Optional, signiert die Anmeldung (sonst aus `APP_PASSWORD` abgeleitet) |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Datenbank für den Diagnoseverlauf |
+| `CLAUDE_API_KEY` | Anthropic-Key für die KI-Analyse (sonst Demo-Modus) |
+| `CLAUDE_MODEL` | optional, Modell überschreiben |
 
-Ohne Keys läuft die App im Demo-Modus mit vorgefertigten Antworten.
+## Datenbank für den Verlauf (Supabase)
+
+1. Projekt auf [supabase.com](https://supabase.com) anlegen.
+2. Im *SQL Editor* den Inhalt von `supabase/schema.sql` ausführen.
+3. Unter *Project Settings → API* die Project-URL und den `service_role`-Key kopieren und als `SUPABASE_URL` bzw. `SUPABASE_SERVICE_ROLE_KEY` setzen. Der Key gehört nur auf den Server und darf nie öffentlich werden.
+4. `APP_PASSWORD` setzen und neu deployen.
+
+Ohne Datenbank speichert die App den Verlauf lokal im Browser. Sobald die Datenbank konfiguriert ist, lassen sich lokale Fälle im Verlauf-Tab mit einem Klick übernehmen.
+
+## Prüfen
+
+```bash
+npm run lint
+npm run build
+```

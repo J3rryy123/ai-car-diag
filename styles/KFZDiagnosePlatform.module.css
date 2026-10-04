@@ -52,10 +52,23 @@
 /* Navigation */
 .nav {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.navIcon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.navLabelShort {
+  display: none;
 }
 
 .navButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.5rem 1rem;
   border: 2px solid #e5e7eb;
   border-radius: 8px;
@@ -442,11 +455,6 @@
   color: #1d4ed8;
 }
 
-.chatgptBadge {
-  background: #dcfce7;
-  color: #16a34a;
-}
-
 .diagnosisText {
   color: #374151;
   line-height: 1.6;
@@ -810,20 +818,6 @@
   }
 }
 
-/* Tab-Button Styling für OBD2 */
-.navButton:nth-child(2) {
-  background: linear-gradient(135deg, #fff 0%, #fff 100%);
-}
-
-.navButton:nth-child(2):hover {
-  background: linear-gradient(135deg, #fff 0%, #fff 100%);
-}
-
-.navButton:nth-child(2).navButtonActive {
-  background: linear-gradient(135deg, #fff 0%, #fff 100%);
-  box-shadow: 0 4px 14px 0 rgba(5, 150, 105, 0.39);
-}
-
 /* Erweiterte Input-Styles */
 .input.obdCode {
   font-family: 'Courier New', monospace;
@@ -891,4 +885,85 @@
   color: #10b981;
   font-weight: bold;
 }
+}
+
+/* Mobile: Navigation als feste Leiste am unteren Rand */
+@media (max-width: 768px) {
+  .container {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+
+  .header {
+    padding: 1rem 0;
+  }
+
+  .headerContent {
+    flex-direction: row;
+    text-align: left;
+  }
+
+  .nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    flex-wrap: nowrap;
+    gap: 0;
+    width: 100%;
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .navButton {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+    padding: 0.5rem 0.15rem;
+    border: none;
+    border-radius: 0;
+    background: white;
+    font-size: 0.7rem;
+    min-height: 3.5rem;
+  }
+
+  .navButtonActive {
+    background: #eff6ff;
+    box-shadow: inset 0 3px 0 #2563eb;
+  }
+
+  .navIcon {
+    font-size: 1.35rem;
+  }
+
+  .navLabel {
+    display: none;
+  }
+
+  .navLabelShort {
+    display: inline;
+  }
+
+  /* Eingaben mindestens 16px, damit iOS beim Fokussieren nicht zoomt */
+  .input,
+  .textarea {
+    font-size: 16px;
+  }
+
+  .button {
+    min-height: 3rem;
+  }
+}
+
+.navButton:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.navButton:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -4px;
 }

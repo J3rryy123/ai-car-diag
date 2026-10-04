@@ -1,5 +1,6 @@
+import { requireAuth } from '../../utils/server/auth';
+
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-5-5';
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 const MAX_PROBLEM_LENGTH = 2000;
 const MAX_FIELD_LENGTH = 100;
@@ -53,50 +54,24 @@ async function callClaude(prompt) {
   return { content: data.content?.[0]?.text || '', model: CLAUDE_MODEL };
 }
 
-async function callOpenAI(prompt) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 2000,
-      temperature: 0.4,
-    }),
-  });
-  if (!response.ok) {
-    console.error('OpenAI API error:', response.status, await response.text());
-    throw new Error(`OpenAI API Fehler (HTTP ${response.status})`);
-  }
-  const data = await response.json();
-  return { content: data.choices?.[0]?.message?.content || '', model: OPENAI_MODEL };
-}
-
 /**
- * Runs the prompt against the selected provider.
- * Returns { analysis, mode, modelUsed, error } or null when no provider is configured.
+ * Runs the prompt against the Claude API.
+ * Returns { analysis, mode, modelUsed, error } or null when no API key is configured.
  */
-async function runAI({ aiModel, prompt, suffix, fallback }) {
-  const provider =
-    aiModel === 'claude' && process.env.CLAUDE_API_KEY ? { name: 'claude', call: callClaude }
-    : aiModel === 'chatgpt' && process.env.OPENAI_API_KEY ? { name: 'openai', call: callOpenAI }
-    : null;
-  if (!provider) return null;
+async function runAI({ prompt, suffix, fallback }) {
+  if (!process.env.CLAUDE_API_KEY) return null;
 
   try {
-    const { content, model } = await provider.call(prompt);
+    const { content, model } = await callClaude(prompt);
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
-        return { analysis: JSON.parse(jsonMatch[0]), mode: provider.name + suffix, modelUsed: model, error: null };
+        return { analysis: JSON.parse(jsonMatch[0]), mode: `claude${suffix}`, modelUsed: model, error: null };
       } catch (parseError) {
         console.error('JSON parse error:', parseError);
       }
     }
-    return { analysis: fallback(content), mode: `${provider.name}${suffix}-fallback`, modelUsed: model, error: null };
+    return { analysis: fallback(content), mode: `claude${suffix}-fallback`, modelUsed: model, error: null };
   } catch (error) {
     return { analysis: null, mode: null, modelUsed: null, error: error.message };
   }
@@ -208,14 +183,14 @@ ${LANGUAGE_NOTE}`;
 
 // --- Fallbacks when the model answers without valid JSON -------------------
 
-function createFallbackAnalysis(content, provider) {
+function createFallbackAnalysis(content) {
   return {
     diagnosis: content.trim() || 'Die KI hat keine auswertbare Antwort geliefert.',
     confidence: 50,
     possibleCauses: [],
     nextSteps: ['Antwort der KI prüfen und Fehlerbild manuell weiter eingrenzen'],
     urgency: 'Mittel – Antwort der KI war nicht strukturiert',
-    vehicleSpecific: `Freitext-Antwort (${provider}); Format konnte nicht automatisch ausgewertet werden.`,
+    vehicleSpecific: `Freitext-Antwort (Claude); Format konnte nicht automatisch ausgewertet werden.`,
   };
 }
 
@@ -239,6 +214,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+  if (!requireAuth(req, res)) return;
 
   const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
   if (isRateLimited(ip)) {
@@ -247,8 +223,7 @@ export default async function handler(req, res) {
 
   const body = req.body || {};
   const requestType = body.type === 'obd2' ? 'obd2' : 'diagnose';
-  const aiModel = body.aiModel === 'chatgpt' ? 'chatgpt' : 'claude';
-  const debug = { requestType, selectedModel: aiModel, environment: process.env.NODE_ENV };
+  const debug = { requestType, environment: process.env.NODE_ENV };
 
   if (requestType === 'obd2') {
     const obdCode = clean(body.obdCode, 5).toUpperCase();
@@ -260,11 +235,10 @@ export default async function handler(req, res) {
     const obdVinDecoded = obdVin ? body.obdVinDecoded : null;
 
     return respond(res, debug, {
-      aiModel,
       suffix: '-obd2',
       prompt: buildObdPrompt(obdCode, codeInfo, obdVin, obdVinDecoded),
       fallback: (content) => createOBD2FallbackAnalysis(content, obdCode, codeInfo),
-      demo: () => createOBD2Demo(obdCode, codeInfo, obdVin, obdVinDecoded, aiModel),
+      demo: () => createOBD2Demo(obdCode, codeInfo, obdVin, obdVinDecoded),
       demoMode: 'demo-obd2',
     });
   }
@@ -283,18 +257,17 @@ export default async function handler(req, res) {
   const vinDecoded = vin ? body.vinDecoded : null;
 
   return respond(res, debug, {
-    aiModel,
     suffix: '',
     prompt: buildDiagnosePrompt(problem, carDetails, vin, vinDecoded),
-    fallback: (content) => createFallbackAnalysis(content, aiModel),
-    demo: () => createIntelligentDemo(problem, carDetails, aiModel, vin, vinDecoded),
+    fallback: (content) => createFallbackAnalysis(content),
+    demo: () => createIntelligentDemo(problem, carDetails, vin, vinDecoded),
     demoMode: 'demo-diagnose',
   });
 }
 
-async function respond(res, debug, { aiModel, suffix, prompt, fallback, demo, demoMode }) {
+async function respond(res, debug, { suffix, prompt, fallback, demo, demoMode }) {
   try {
-    const result = await runAI({ aiModel, prompt, suffix, fallback });
+    const result = await runAI({ prompt, suffix, fallback });
     if (result?.analysis) {
       return res.status(200).json({ ...result, debug, timestamp: new Date().toISOString() });
     }
@@ -320,7 +293,7 @@ async function respond(res, debug, { aiModel, suffix, prompt, fallback, demo, de
 }
 
 // NEW: OBD2 Demo Analysis Function
-function createOBD2Demo(obdCode, codeInfo, obdVin, obdVinDecoded, aiModel) {
+function createOBD2Demo(obdCode, codeInfo, obdVin, obdVinDecoded) {
   const code = obdCode.toUpperCase();
   const vinInfo = obdVin ? ` (VIN: ${obdVin})` : '';
   
@@ -334,14 +307,14 @@ function createOBD2Demo(obdCode, codeInfo, obdVin, obdVinDecoded, aiModel) {
   let analysis = {
     category: codeInfo.category || 'General',
     severity: codeInfo.severity || 'Medium',
-    confidence: aiModel === 'claude' ? 90 : 85
+    confidence: 90
   };
 
   // Specific analyses for common codes
   if (code === 'P0171') {
     return {
       ...analysis,
-      diagnosis: `[${aiModel.toUpperCase()}-ENHANCED] Code ${code}${vehicleContext} indicates a lean fuel mixture in Bank 1. This means the engine is receiving too much air or too little fuel.`,
+      diagnosis: `[CLAUDE-ENHANCED] Code ${code}${vehicleContext} indicates a lean fuel mixture in Bank 1. This means the engine is receiving too much air or too little fuel.`,
       symptoms: [
         'Poor engine performance and reduced power',
         'Rough idle or engine hesitation',
@@ -368,7 +341,7 @@ function createOBD2Demo(obdCode, codeInfo, obdVin, obdVinDecoded, aiModel) {
   if (code === 'P0301') {
     return {
       ...analysis,
-      diagnosis: `[${aiModel.toUpperCase()}-ENHANCED] Code ${code}${vehicleContext} indicates a misfire detected in cylinder 1. This can cause engine damage if not addressed promptly.`,
+      diagnosis: `[CLAUDE-ENHANCED] Code ${code}${vehicleContext} indicates a misfire detected in cylinder 1. This can cause engine damage if not addressed promptly.`,
       symptoms: [
         'Engine shaking or vibration',
         'Loss of power and poor acceleration',
@@ -395,7 +368,7 @@ function createOBD2Demo(obdCode, codeInfo, obdVin, obdVinDecoded, aiModel) {
   if (code === 'P0420') {
     return {
       ...analysis,
-      diagnosis: `[${aiModel.toUpperCase()}-ENHANCED] Code ${code}${vehicleContext} indicates catalyst system efficiency below threshold for Bank 1. The catalytic converter is not performing optimally.`,
+      diagnosis: `[CLAUDE-ENHANCED] Code ${code}${vehicleContext} indicates catalyst system efficiency below threshold for Bank 1. The catalytic converter is not performing optimally.`,
       symptoms: [
         'Reduced fuel economy',
         'Failed emissions test',
@@ -422,7 +395,7 @@ function createOBD2Demo(obdCode, codeInfo, obdVin, obdVinDecoded, aiModel) {
   // Generic analysis for other codes
   return {
     ...analysis,
-    diagnosis: `[${aiModel.toUpperCase()}-ANALYSIS] Code ${code}${vehicleContext}: ${codeInfo.description || 'Diagnostic trouble code detected'}. This ${codeInfo.severity?.toLowerCase() || 'medium'} priority issue requires attention.`,
+    diagnosis: `[CLAUDE-ANALYSIS] Code ${code}${vehicleContext}: ${codeInfo.description || 'Diagnostic trouble code detected'}. This ${codeInfo.severity?.toLowerCase() || 'medium'} priority issue requires attention.`,
     symptoms: codeInfo.symptoms || [
       'Check engine light illuminated',
       'Possible performance issues',
@@ -445,7 +418,7 @@ function createOBD2Demo(obdCode, codeInfo, obdVin, obdVinDecoded, aiModel) {
 }
 
 // Existing diagnose demo function (preserved)
-function createIntelligentDemo(problem, carDetails, aiModel, vin, vinDecoded) {
+function createIntelligentDemo(problem, carDetails, vin, vinDecoded) {
   const problemLower = problem.toLowerCase();
   const vinInfo = vin ? ` (VIN: ${vin})` : '';
   
@@ -523,7 +496,7 @@ function createIntelligentDemo(problem, carDetails, aiModel, vin, vinDecoded) {
   if (problemLower.includes('springt nicht an') || problemLower.includes('startet nicht') || problemLower.includes('anlasser')) {
     return {
       diagnosis: `[VIN-ENHANCED] Based on your description "${problem}" for your ${carDetails.make} ${carDetails.model}${vinInfo}${vinSpecificContext} typical starter system issues. The clicking sound during start attempts indicates a faulty starter motor or weak battery.`,
-      confidence: aiModel === 'claude' ? 92 : 88,
+      confidence: 92,
       possibleCauses: [
         { cause: "Faulty starter motor", probability: 75, cost: "250-450€", commonFor: "Common at this age" },
         { cause: "Weak/defective battery", probability: 20, cost: "80-150€", commonFor: "General" },
@@ -544,8 +517,8 @@ function createIntelligentDemo(problem, carDetails, aiModel, vin, vinDecoded) {
 
   // Generic fallback
   return {
-    diagnosis: `[${aiModel.toUpperCase()}-DEMO] Analysis of "${problem}" for ${carDetails.make} ${carDetails.model} ${carDetails.year}${vinInfo}. This appears to be a ${carDetails.engineType || 'standard'} engine issue requiring further investigation.`,
-    confidence: aiModel === 'claude' ? 85 : 80,
+    diagnosis: `[CLAUDE-DEMO] Analysis of "${problem}" for ${carDetails.make} ${carDetails.model} ${carDetails.year}${vinInfo}. This appears to be a ${carDetails.engineType || 'standard'} engine issue requiring further investigation.`,
+    confidence: 85,
     possibleCauses: [
       { cause: "Component wear or malfunction", probability: 60, cost: "100-500€" },
       { cause: "Electrical system issue", probability: 25, cost: "50-300€" },

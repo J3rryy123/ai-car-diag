@@ -8,6 +8,14 @@ import MultiCodeAnalysis from './MultiCodeAnalysis';
 import { addCase } from '../utils/caseHistory';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
+const NAV_ITEMS = [
+  { id: 'diagnose', icon: '🔍', label: 'Diagnose', short: 'Diagnose' },
+  { id: 'obd2', icon: '🔧', label: 'OBD2-Diagnose', short: 'OBD2' },
+  { id: 'multi', icon: '📚', label: 'Mehrere Codes', short: 'Codes' },
+  { id: 'guided', icon: '🧭', label: 'Geführte Suche', short: 'Geführt' },
+  { id: 'history', icon: '🗂️', label: 'Verlauf', short: 'Verlauf' }
+];
+
 const KFZDiagnosePlatform = () => {
   // Tab Management
   const [activeTab, setActiveTab] = useState('diagnose');
@@ -23,7 +31,6 @@ const KFZDiagnosePlatform = () => {
   const [vin, setVin] = useState('');
   const [vinDecoded, setVinDecoded] = useState(null);
   const [results, setResults] = useState(null);
-  const [selectedAI, setSelectedAI] = useState('claude');
   
   // OBD2 Tab States
   const [obdVin, setObdVin] = useState('');
@@ -105,7 +112,6 @@ const KFZDiagnosePlatform = () => {
         type: 'diagnose',
         problem,
         carDetails,
-        aiModel: selectedAI,
         vin: vin || null,
         vinDecoded: vinDecoded || null
       };
@@ -124,7 +130,7 @@ const KFZDiagnosePlatform = () => {
 
       const data = await response.json();
       setResults(data.analysis);
-      addCase({
+      saveCase({
         type: 'diagnose',
         vehicle: [carDetails.make, carDetails.model, carDetails.year].filter(Boolean).join(' '),
         vin: vin || '',
@@ -132,7 +138,6 @@ const KFZDiagnosePlatform = () => {
         carDetails,
         result: data.analysis
       });
-      setHistoryVersion(v => v + 1);
       setDebugInfo({
         mode: data.mode,
         debug: data.debug,
@@ -172,8 +177,7 @@ const KFZDiagnosePlatform = () => {
         obdCode: obdCode.toUpperCase(),
         obdVin: obdVin || null,
         obdVinDecoded: obdVinDecoded || null,
-        codeInfo: obdCodeDecoded,
-        aiModel: selectedAI  // AI-Modell für OBD2 hinzufügen
+        codeInfo: obdCodeDecoded
       };
 
       const response = await fetch('/api/analyze', {
@@ -190,7 +194,7 @@ const KFZDiagnosePlatform = () => {
 
       const data = await response.json();
       setObdResults(data.analysis);
-      addCase({
+      saveCase({
         type: 'obd2',
         code: obdCode.toUpperCase(),
         vehicle: obdVinDecoded?.isValid
@@ -200,7 +204,6 @@ const KFZDiagnosePlatform = () => {
         problem: obdCodeDecoded?.description || '',
         result: data.analysis
       });
-      setHistoryVersion(v => v + 1);
       
       setDebugInfo({
         mode: data.mode,
@@ -215,6 +218,26 @@ const KFZDiagnosePlatform = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fall im Verlauf speichern (Datenbank, sonst lokal)
+  const saveCase = async (entry) => {
+    try {
+      await addCase(entry);
+      setHistoryVersion(v => v + 1);
+      return true;
+    } catch (err) {
+      setError(err.message || 'Fall konnte nicht im Verlauf gespeichert werden.');
+      return false;
+    }
+  };
+
+  // Tab wechseln; Geführte Suche und Mehrfach-Codes starten dabei leer
+  const openTab = (id) => {
+    if (id === 'multi' && activeTab !== 'multi') { setMultiCase(null); setMultiKey(k => k + 1); }
+    if (id === 'guided' && activeTab !== 'guided') { setGuidedCase(null); setGuidedKey(k => k + 1); }
+    setActiveTab(id);
+    window.scrollTo({ top: 0 });
   };
 
   // Fall aus dem Verlauf wieder öffnen
@@ -246,21 +269,17 @@ const KFZDiagnosePlatform = () => {
   // Utility Functions
   const getModeColor = (mode) => {
     if (mode && mode.includes('demo')) return '#f59e0b';
-    if (mode === 'claude' || mode === 'openai') return '#16a34a';
-    if (mode === 'claude-fallback' || mode === 'openai-fallback') return '#0891b2';
+    if (mode === 'claude') return '#16a34a';
+    if (mode === 'claude-fallback') return '#0891b2';
     return '#6b7280';
   };
 
   const getModeText = (mode) => {
     if (!mode) return 'Unbekannt';
     if (mode === 'claude') return '✅ Echte Claude API';
-    if (mode === 'openai') return '✅ Echte OpenAI API';
     if (mode === 'claude-obd2') return '✅ Claude OBD2-Analyse';
-    if (mode === 'openai-obd2') return '✅ OpenAI OBD2-Analyse';
     if (mode === 'claude-fallback') return '⚠️ Claude API (Fallback)';
-    if (mode === 'openai-fallback') return '⚠️ OpenAI API (Fallback)';
     if (mode === 'claude-obd2-fallback') return '⚠️ Claude OBD2 (Fallback)';
-    if (mode === 'openai-obd2-fallback') return '⚠️ OpenAI OBD2 (Fallback)';
     if (mode.includes('demo')) return '⚠️ Demo-Modus';
     if (mode.includes('error')) return '❌ API-Fehler';
     return mode;
@@ -274,8 +293,8 @@ const KFZDiagnosePlatform = () => {
       <div className={styles.resultsCard}>
         <div className={styles.resultsHeader}>
           <h2 className={styles.cardTitle}>✅ Diagnose-Ergebnis</h2>
-          <span className={`${styles.aiModelBadge} ${selectedAI === 'claude' ? styles.claudeBadge : styles.chatgptBadge}`}>
-            {selectedAI === 'claude' ? '🤖 Claude' : '🤖 ChatGPT'}
+          <span className={`${styles.aiModelBadge} ${styles.claudeBadge}`}>
+            🤖 Claude
           </span>
         </div>
         
@@ -459,37 +478,19 @@ const KFZDiagnosePlatform = () => {
               </p>
             </div>
           </div>
-          <nav className={styles.nav}>
-            <button
-              className={`${styles.navButton} ${activeTab === 'diagnose' ? styles.navButtonActive : ''}`}
-              onClick={() => setActiveTab('diagnose')}
-            >
-              🔍 Diagnose
-            </button>
-            <button
-              className={`${styles.navButton} ${activeTab === 'obd2' ? styles.navButtonActive : ''}`}
-              onClick={() => setActiveTab('obd2')}
-            >
-              🔧 OBD2-Diagnose
-            </button>
-            <button
-              className={`${styles.navButton} ${activeTab === 'multi' ? styles.navButtonActive : ''}`}
-              onClick={() => { if (activeTab !== 'multi') { setMultiCase(null); setMultiKey(k => k + 1); } setActiveTab('multi'); }}
-            >
-              📚 Mehrere Codes
-            </button>
-            <button
-              className={`${styles.navButton} ${activeTab === 'guided' ? styles.navButtonActive : ''}`}
-              onClick={() => { if (activeTab !== 'guided') { setGuidedCase(null); setGuidedKey(k => k + 1); } setActiveTab('guided'); }}
-            >
-              🧭 Geführte Suche
-            </button>
-            <button
-              className={`${styles.navButton} ${activeTab === 'history' ? styles.navButtonActive : ''}`}
-              onClick={() => setActiveTab('history')}
-            >
-              🗂️ Verlauf
-            </button>
+          <nav className={styles.nav} aria-label="Hauptnavigation">
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                className={`${styles.navButton} ${activeTab === item.id ? styles.navButtonActive : ''}`}
+                aria-current={activeTab === item.id ? 'page' : undefined}
+                onClick={() => openTab(item.id)}
+              >
+                <span className={styles.navIcon} aria-hidden="true">{item.icon}</span>
+                <span className={styles.navLabel}>{item.label}</span>
+                <span className={styles.navLabelShort}>{item.short}</span>
+              </button>
+            ))}
           </nav>
         </div>
       </header>
@@ -607,66 +608,6 @@ const KFZDiagnosePlatform = () => {
                   </div>
                 </div>
 
-                {/* AI Model Selection - Card Version */}
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>KI-Modell wählen</label>
-                  <div className={styles.aiSelectorContainer}>
-                    <div 
-                      className={`${styles.aiCard} ${selectedAI === 'claude' ? styles.aiCardActive : ''}`}
-                      onClick={() => setSelectedAI('claude')}
-                    >
-                      <div className={styles.aiCardHeader}>
-                        <div className={styles.aiIcon}>🤖</div>
-                        <div className={styles.aiInfo}>
-                          <div className={styles.aiName}>Claude</div>
-                        </div>
-                        <div className={styles.aiRadio}>
-                          <input
-                            type="radio"
-                            name="aiModel"
-                            value="claude"
-                            checked={selectedAI === 'claude'}
-                            onChange={() => setSelectedAI('claude')}
-                            className={styles.radioInput}
-                          />
-                          <div className={styles.radioCustom}></div>
-                        </div>
-                      </div>
-                      <div className={styles.aiFeatures}>
-                        <span className={styles.aiFeature}>🔍 Detailanalyse</span>
-                        <span className={styles.aiFeature}>🎯 Präzise Diagnosen</span>
-                      </div>
-                    </div>
-
-                    <div 
-                      className={`${styles.aiCard} ${selectedAI === 'chatgpt' ? styles.aiCardActive : ''}`}
-                      onClick={() => setSelectedAI('chatgpt')}
-                    >
-                      <div className={styles.aiCardHeader}>
-                        <div className={styles.aiIcon}>🤖</div>
-                        <div className={styles.aiInfo}>
-                          <div className={styles.aiName}>ChatGPT</div>
-                        </div>
-                        <div className={styles.aiRadio}>
-                          <input
-                            type="radio"
-                            name="aiModel"
-                            value="chatgpt"
-                            checked={selectedAI === 'chatgpt'}
-                            onChange={() => setSelectedAI('chatgpt')}
-                            className={styles.radioInput}
-                          />
-                          <div className={styles.radioCustom}></div>
-                        </div>
-                      </div>
-                      <div className={styles.aiFeatures}>
-                        <span className={styles.aiFeature}>💡 Praktische Tipps</span>
-                        <span className={styles.aiFeature}>🔧 Breites Wissen</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Problem Description */}
                 <div className={styles.formGroup}>
                   <label className={styles.label}>Problembeschreibung</label>
@@ -716,7 +657,7 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
           <MultiCodeAnalysis
             key={multiKey}
             initialCase={multiCase}
-            onSave={(entry) => { addCase(entry); setHistoryVersion(v => v + 1); }}
+            onSave={saveCase}
           />
         )}
 
@@ -725,7 +666,7 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
           <GuidedDiagnosis
             key={guidedKey}
             initialCase={guidedCase}
-            onSave={(entry) => { addCase(entry); setHistoryVersion(v => v + 1); }}
+            onSave={saveCase}
           />
         )}
 

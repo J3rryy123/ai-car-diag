@@ -1,0 +1,31 @@
+// Abbildung zwischen dem flachen Fall-Objekt der App und der Tabelle `cases`.
+const TYPES = ['diagnose', 'obd2', 'guided', 'multi'];
+const COLUMNS = ['id', 'created_at', 'type', 'customer', 'note', 'vehicle', 'vin', 'code', 'problem', 'data'];
+const MAX_DATA_BYTES = 200 * 1024;
+
+export const clip = (value, max) => (typeof value === 'string' ? value.slice(0, max) : '');
+
+export function toRow(c) {
+  if (!c || !TYPES.includes(c.type)) return null;
+  const { type, customer, note, vehicle, vin, code, problem, id, createdAt, ...data } = c;
+  if (JSON.stringify(data).length > MAX_DATA_BYTES) return null;
+  const row = {
+    type,
+    customer: clip(customer, 200),
+    note: clip(note, 5000),
+    vehicle: clip(vehicle, 200),
+    vin: clip(vin, 17),
+    code: clip(code, 200),
+    problem: clip(problem, 2000),
+    data
+  };
+  // Beim Import lokaler Fälle das ursprüngliche Datum behalten
+  if (typeof createdAt === 'string' && !Number.isNaN(Date.parse(createdAt))) row.created_at = new Date(createdAt).toISOString();
+  return row;
+}
+
+export function fromRow(row) {
+  const flat = {};
+  for (const key of COLUMNS) if (key !== 'data' && key !== 'created_at') flat[key] = row[key];
+  return { ...row.data, ...flat, createdAt: row.created_at };
+}

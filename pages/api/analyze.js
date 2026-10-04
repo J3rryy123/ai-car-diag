@@ -132,7 +132,51 @@ function describeEngine(decoded) {
   return lines.length ? `${lines.join('\n')}\n` : '';
 }
 
-function buildObdPrompt(obdCode, codeInfo, obdVin, obdVinDecoded) {
+// Technische Daten aus dem Fahrzeugschein (vom Client gesendet): nur geprüfte Zahlen/Kurztexte übernehmen
+function cleanRegistration(raw, vin) {
+  if (!raw || typeof raw !== 'object') return null;
+  // Gehört der Scan zu einer anderen FIN als die aktuelle Anfrage, nicht verwenden
+  const regVin = clean(raw.vin, 17).toUpperCase();
+  if (regVin && vin && regVin !== vin) return null;
+
+  const num = (value, min, max) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= min && n <= max ? Math.round(n) : null;
+  };
+  const code = (value, pattern) => {
+    const v = clean(value, 6).toUpperCase();
+    return pattern.test(v) ? v : null;
+  };
+  const reg = {
+    displacementCcm: num(raw.displacementCcm, 50, 12000),
+    powerKw: num(raw.powerKw, 1, 1500),
+    hsn: code(raw.hsn, /^[0-9A-Z]{4}$/),
+    tsn: code(raw.tsn, /^[0-9A-Z]{3}$/),
+    fuel: clean(raw.fuelRaw, 40) || null,
+    type: clean(raw.type, 40) || null,
+    make: clean(raw.make, 40) || null,
+    model: clean(raw.model, 60) || null,
+    firstRegistration: /^\d{4}-\d{2}-\d{2}$/.test(raw.firstRegistration || '') ? raw.firstRegistration : null,
+  };
+  if (reg.powerKw) reg.powerPs = Math.round(reg.powerKw * 1.35962);
+  return Object.values(reg).some((v) => v !== null) ? reg : null;
+}
+
+// Zeilen für den Prompt; leer, wenn nichts bekannt ist
+function describeRegistration(reg) {
+  if (!reg) return '';
+  const lines = [];
+  if (reg.make || reg.model) lines.push(`- Vehicle: ${[reg.make, reg.model].filter(Boolean).join(' ')}`);
+  if (reg.displacementCcm) lines.push(`- Displacement: ${reg.displacementCcm} cm³`);
+  if (reg.powerKw) lines.push(`- Power: ${reg.powerKw} kW (${reg.powerPs} PS)`);
+  if (reg.fuel) lines.push(`- Fuel (registration): ${reg.fuel}`);
+  if (reg.hsn && reg.tsn) lines.push(`- German HSN/TSN: ${reg.hsn}/${reg.tsn}`);
+  if (reg.type) lines.push(`- Type/Variant (D.2): ${reg.type}`);
+  if (reg.firstRegistration) lines.push(`- First registration: ${reg.firstRegistration}`);
+  return lines.length ? `Registration document data (read from the vehicle registration, reliable):\n${lines.join('\n')}\n` : '';
+}
+
+function buildObdPrompt(obdCode, codeInfo, obdVin, obdVinDecoded, registration) {
   let vehicleContext = '';
   if (obdVinDecoded && obdVinDecoded.isValid) {
     vehicleContext = `
@@ -141,6 +185,7 @@ VIN Analysis:
 - Manufacturer: ${clean(obdVinDecoded.manufacturer?.name) || 'Unknown'} (${clean(obdVinDecoded.manufacturer?.country) || 'Unknown'})
 ${obdVinDecoded.year?.modelYear ? `- Model Year: ${clean(String(obdVinDecoded.year.modelYear))}${obdVinDecoded.year.confidence === 'estimated' ? ' (estimated from VIN)' : ''}\n` : ''}${describeEngine(obdVinDecoded)}`;
   }
+  vehicleContext += describeRegistration(registration);
 
   return `Analyze the following OBD2 diagnostic trouble code as an expert automotive technician:
 
@@ -180,7 +225,7 @@ Please provide a structured response in the following JSON format:
 ${LANGUAGE_NOTE}`;
 }
 
-function buildDiagnosePrompt(problem, carDetails, vin, vinDecoded) {
+function buildDiagnosePrompt(problem, carDetails, vin, vinDecoded, registration) {
   let vehicleInfo = `${carDetails.make} ${carDetails.model} ${carDetails.year}`;
   if (carDetails.engineType) {
     vehicleInfo += `, Engine: ${carDetails.engineType}`;
@@ -194,6 +239,7 @@ VIN Analysis:
 - Manufacturer: ${clean(vinDecoded.manufacturer?.name) || 'Unknown'} (${clean(vinDecoded.manufacturer?.country) || 'Unknown'})
 ${vinDecoded.year?.modelYear ? `- Model Year: ${clean(String(vinDecoded.year.modelYear))}${vinDecoded.year.confidence === 'estimated' ? ' (estimated from VIN)' : ''}\n` : ''}${describeEngine(vinDecoded)}`;
   }
+  vinContext += describeRegistration(registration);
 
   return `Analyze the following automotive problem as an expert mechanic:
 
@@ -276,11 +322,12 @@ export default async function handler(req, res) {
     }
     const obdVin = VIN_PATTERN.test(clean(body.obdVin, 17).toUpperCase()) ? clean(body.obdVin, 17).toUpperCase() : null;
     const obdVinDecoded = obdVin ? body.obdVinDecoded : null;
+    const registration = cleanRegistration(body.registration, obdVin);
 
     return respond(res, debug, {
       tool: OBD_TOOL,
       suffix: '-obd2',
-      prompt: buildObdPrompt(obdCode, codeInfo, obdVin, obdVinDecoded),
+      prompt: buildObdPrompt(obdCode, codeInfo, obdVin, obdVinDecoded, registration),
       fallback: (content) => createOBD2FallbackAnalysis(content, obdCode, codeInfo),
       demo: () => createOBD2Demo(obdCode, codeInfo, obdVin, obdVinDecoded),
       demoMode: 'demo-obd2',
@@ -299,11 +346,12 @@ export default async function handler(req, res) {
   }
   const vin = VIN_PATTERN.test(clean(body.vin, 17).toUpperCase()) ? clean(body.vin, 17).toUpperCase() : null;
   const vinDecoded = vin ? body.vinDecoded : null;
+  const registration = cleanRegistration(body.carDetails?.registration, vin);
 
   return respond(res, debug, {
     tool: DIAGNOSE_TOOL,
     suffix: '',
-    prompt: buildDiagnosePrompt(problem, carDetails, vin, vinDecoded),
+    prompt: buildDiagnosePrompt(problem, carDetails, vin, vinDecoded, registration),
     fallback: (content) => createFallbackAnalysis(content),
     demo: () => createIntelligentDemo(problem, carDetails, vin, vinDecoded),
     demoMode: 'demo-diagnose',

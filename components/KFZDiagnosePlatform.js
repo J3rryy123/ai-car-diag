@@ -88,6 +88,7 @@ const KFZDiagnosePlatform = () => {
   
   // OBD2 Tab States
   const [obdVin, setObdVin] = useState('');
+  const [obdRegistration, setObdRegistration] = useState(null);
   const [obdVinDecoded, setObdVinDecoded] = useState(null);
   const [obdCode, setObdCode] = useState('');
   const [obdCodeDecoded, setObdCodeDecoded] = useState(null);
@@ -135,6 +136,14 @@ const KFZDiagnosePlatform = () => {
   const handleVinChange = (inputVin, { keepForm = false } = {}) => {
     setVin(inputVin);
     const cleaned = VIN_DECODER.cleanVIN(inputVin);
+    // Fahrzeugschein-Daten gehören zu genau einer FIN – bei anderer FIN verwerfen
+    if (!keepForm) {
+      setCarDetails(prev => (
+        prev.registration?.vin && prev.registration.vin !== cleaned
+          ? (({ registration, ...rest }) => rest)(prev)
+          : prev
+      ));
+    }
     if (cleaned.length < 17) {
       lookupSeq.current.diagnose++;
       setVinDecoded(null);
@@ -165,6 +174,7 @@ const KFZDiagnosePlatform = () => {
   const handleObdVinChange = (inputVin) => {
     setObdVin(inputVin);
     const cleaned = VIN_DECODER.cleanVIN(inputVin);
+    setObdRegistration(prev => (prev?.vin && prev.vin !== cleaned ? null : prev));
     if (cleaned.length < 17) {
       lookupSeq.current.obd++;
       setObdVinDecoded(null);
@@ -175,6 +185,20 @@ const KFZDiagnosePlatform = () => {
     if (decoded?.isValid) enrichVin('obd', cleaned, decoded, setObdVinDecoded);
   };
 
+  // Technische Daten aus dem Fahrzeugschein, die in die KI-Diagnose einfließen
+  const pickRegistration = (fields) => ({
+    vin: fields.vin,
+    make: fields.make,
+    model: fields.model || fields.type,
+    type: fields.type,
+    hsn: fields.hsn,
+    tsn: fields.tsn,
+    displacementCcm: fields.displacementCcm,
+    powerKw: fields.powerKw,
+    fuelRaw: fields.fuelRaw,
+    firstRegistration: fields.firstRegistration
+  });
+
   // Daten aus dem Fahrzeugschein-Scan übernehmen (Fahrzeugschein hat Vorrang vor VIN-Schätzungen)
   const applyRegistration = (fields) => {
     if (fields.vin) handleVinChange(fields.vin, { keepForm: true });
@@ -183,12 +207,14 @@ const KFZDiagnosePlatform = () => {
       make: fields.make || prev.make,
       model: fields.model || fields.type || prev.model,
       year: fields.firstRegistrationYear ? String(fields.firstRegistrationYear) : prev.year,
-      engineType: FORM_FUELS[fields.fuel] || prev.engineType
+      engineType: FORM_FUELS[fields.fuel] || prev.engineType,
+      registration: pickRegistration(fields)
     }));
   };
 
   const applyObdRegistration = (fields) => {
     if (fields.vin) handleObdVinChange(fields.vin);
+    setObdRegistration(pickRegistration(fields));
   };
 
   // OBD2 Code Decoder
@@ -287,6 +313,7 @@ const KFZDiagnosePlatform = () => {
         obdCode: obdCode.toUpperCase(),
         obdVin: VIN_DECODER.cleanVIN(obdVin) || null,
         obdVinDecoded: obdVinDecoded || null,
+        registration: obdRegistration,
         codeInfo: obdCodeDecoded
       };
 
@@ -366,6 +393,7 @@ const KFZDiagnosePlatform = () => {
       setActiveTab('guided');
     } else if (c.type === 'obd2') {
       handleObdVinChange(c.vin || '');
+      setObdRegistration(null);
       handleObdCodeChange(c.code || '');
       setObdResults(c.result);
       setActiveTab('obd2');

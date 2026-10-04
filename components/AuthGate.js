@@ -82,6 +82,7 @@ const AuthGate = ({ children }) => {
     return (
       <div className={styles.container}>
         <main className={styles.main} style={{ maxWidth: '28rem', margin: '4rem auto' }}>
+          <img className={styles.logo} src="/logo.png" alt="Smart Repair Service" style={{ margin: '0 auto 1.5rem' }} />
           <form className={styles.card} onSubmit={submit}>
             <h2 className={styles.cardTitle}>{setup ? '👤 Ersteinrichtung' : '🔒 Anmeldung'}</h2>
             {setup && (

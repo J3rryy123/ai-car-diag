@@ -81,9 +81,9 @@ export function normalizeRegistration(raw) {
     }
   }
 
-  const hsn = text(input.hsn, 4)?.toUpperCase();
+  const hsn = text(input.hsn, 20)?.toUpperCase();
   if (hsn && /^[0-9A-Z]{4}$/.test(hsn)) fields.hsn = hsn;
-  const tsn = text(input.tsn, 3)?.toUpperCase();
+  const tsn = text(input.tsn, 20)?.toUpperCase();
   if (tsn && /^[0-9A-Z]{3}$/.test(tsn)) fields.tsn = tsn;
 
   const make = text(input.make);

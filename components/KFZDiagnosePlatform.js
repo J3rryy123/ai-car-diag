@@ -278,6 +278,7 @@ const KFZDiagnosePlatform = () => {
         error: data.error,
         timestamp: data.timestamp,
         modelUsed: data.modelUsed,
+        debugAllowed: Boolean(data.debugAllowed),
         demo: Boolean(data.demo),
         demoReason: data.demoReason
       });
@@ -348,6 +349,7 @@ const KFZDiagnosePlatform = () => {
         error: data.error,
         timestamp: data.timestamp,
         modelUsed: data.modelUsed,
+        debugAllowed: Boolean(data.debugAllowed),
         demo: Boolean(data.demo),
         demoReason: data.demoReason
       });
@@ -501,7 +503,7 @@ const KFZDiagnosePlatform = () => {
           </div>
         )}
 
-        {debugInfo && (
+        {debugInfo?.debugAllowed && (
           <details className={styles.debugInfo}>
             <summary>🔧 Debug Information</summary>
             <div>
@@ -591,7 +593,7 @@ const KFZDiagnosePlatform = () => {
           </div>
         )}
 
-        {debugInfo && (
+        {debugInfo?.debugAllowed && (
           <details className={styles.debugInfo}>
             <summary>🔧 Debug Information</summary>
             <div>

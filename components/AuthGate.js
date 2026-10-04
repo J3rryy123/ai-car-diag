@@ -80,7 +80,7 @@ const AuthGate = ({ children }) => {
       {state.authRequired && (
         <button
           onClick={logout}
-          style={{ position: 'fixed', right: '1rem', bottom: '1rem', padding: '0.5rem 0.9rem', borderRadius: 8, border: '1px solid #d1d5db', background: 'white', cursor: 'pointer' }}
+          style={{ position: 'fixed', right: '0.5rem', top: '0.5rem', zIndex: 60, padding: '0.35rem 0.7rem', fontSize: '0.8rem', borderRadius: 8, border: '1px solid #d1d5db', background: 'white', cursor: 'pointer' }}
         >
           Abmelden
         </button>

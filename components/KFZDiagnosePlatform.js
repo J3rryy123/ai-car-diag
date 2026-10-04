@@ -8,6 +8,14 @@ import MultiCodeAnalysis from './MultiCodeAnalysis';
 import { addCase } from '../utils/caseHistory';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
+const NAV_ITEMS = [
+  { id: 'diagnose', icon: '🔍', label: 'Diagnose', short: 'Diagnose' },
+  { id: 'obd2', icon: '🔧', label: 'OBD2-Diagnose', short: 'OBD2' },
+  { id: 'multi', icon: '📚', label: 'Mehrere Codes', short: 'Codes' },
+  { id: 'guided', icon: '🧭', label: 'Geführte Suche', short: 'Geführt' },
+  { id: 'history', icon: '🗂️', label: 'Verlauf', short: 'Verlauf' }
+];
+
 const KFZDiagnosePlatform = () => {
   // Tab Management
   const [activeTab, setActiveTab] = useState('diagnose');
@@ -222,6 +230,14 @@ const KFZDiagnosePlatform = () => {
       setError(err.message || 'Fall konnte nicht im Verlauf gespeichert werden.');
       return false;
     }
+  };
+
+  // Tab wechseln; Geführte Suche und Mehrfach-Codes starten dabei leer
+  const openTab = (id) => {
+    if (id === 'multi' && activeTab !== 'multi') { setMultiCase(null); setMultiKey(k => k + 1); }
+    if (id === 'guided' && activeTab !== 'guided') { setGuidedCase(null); setGuidedKey(k => k + 1); }
+    setActiveTab(id);
+    window.scrollTo({ top: 0 });
   };
 
   // Fall aus dem Verlauf wieder öffnen
@@ -462,37 +478,19 @@ const KFZDiagnosePlatform = () => {
               </p>
             </div>
           </div>
-          <nav className={styles.nav}>
-            <button
-              className={`${styles.navButton} ${activeTab === 'diagnose' ? styles.navButtonActive : ''}`}
-              onClick={() => setActiveTab('diagnose')}
-            >
-              🔍 Diagnose
-            </button>
-            <button
-              className={`${styles.navButton} ${activeTab === 'obd2' ? styles.navButtonActive : ''}`}
-              onClick={() => setActiveTab('obd2')}
-            >
-              🔧 OBD2-Diagnose
-            </button>
-            <button
-              className={`${styles.navButton} ${activeTab === 'multi' ? styles.navButtonActive : ''}`}
-              onClick={() => { if (activeTab !== 'multi') { setMultiCase(null); setMultiKey(k => k + 1); } setActiveTab('multi'); }}
-            >
-              📚 Mehrere Codes
-            </button>
-            <button
-              className={`${styles.navButton} ${activeTab === 'guided' ? styles.navButtonActive : ''}`}
-              onClick={() => { if (activeTab !== 'guided') { setGuidedCase(null); setGuidedKey(k => k + 1); } setActiveTab('guided'); }}
-            >
-              🧭 Geführte Suche
-            </button>
-            <button
-              className={`${styles.navButton} ${activeTab === 'history' ? styles.navButtonActive : ''}`}
-              onClick={() => setActiveTab('history')}
-            >
-              🗂️ Verlauf
-            </button>
+          <nav className={styles.nav} aria-label="Hauptnavigation">
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                className={`${styles.navButton} ${activeTab === item.id ? styles.navButtonActive : ''}`}
+                aria-current={activeTab === item.id ? 'page' : undefined}
+                onClick={() => openTab(item.id)}
+              >
+                <span className={styles.navIcon} aria-hidden="true">{item.icon}</span>
+                <span className={styles.navLabel}>{item.label}</span>
+                <span className={styles.navLabelShort}>{item.short}</span>
+              </button>
+            ))}
           </nav>
         </div>
       </header>

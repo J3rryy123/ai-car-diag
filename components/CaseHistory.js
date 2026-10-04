@@ -45,7 +45,7 @@ const CaseHistory = ({ refreshKey, onOpen }) => {
           <div key={c.id} className={styles.causeCard}>
             <div className={styles.causeHeader}>
               <strong>
-                {c.type === 'obd2' ? `🔧 ${c.code}` : '🔍 Diagnose'} · {c.vehicle || 'Fahrzeug unbekannt'}
+                {c.type === 'obd2' ? `🔧 ${c.code}` : c.type === 'guided' ? '🧭 Geführt' : '🔍 Diagnose'} · {c.vehicle || 'Fahrzeug unbekannt'}
               </strong>
               <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>{formatDate(c.createdAt)}</span>
             </div>

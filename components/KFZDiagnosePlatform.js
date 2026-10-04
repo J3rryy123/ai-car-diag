@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import VIN_DECODER from '../utils/vinDecoder';
 import OBD2_DECODER from '../utils/obdDecoder';
 import CaseHistory from './CaseHistory';
+import GuidedDiagnosis from './GuidedDiagnosis';
 import { addCase } from '../utils/caseHistory';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
@@ -35,6 +36,8 @@ const KFZDiagnosePlatform = () => {
   const [error, setError] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
   const [historyVersion, setHistoryVersion] = useState(0);
+  const [guidedCase, setGuidedCase] = useState(null);
+  const [guidedKey, setGuidedKey] = useState(0);
 
   // VINDecoder for Diagnose Tab
  const handleVinChange = (inputVin) => {
@@ -215,7 +218,11 @@ const KFZDiagnosePlatform = () => {
   const openCase = (c) => {
     setError(null);
     setDebugInfo(null);
-    if (c.type === 'obd2') {
+    if (c.type === 'guided') {
+      setGuidedCase(c);
+      setGuidedKey(k => k + 1);
+      setActiveTab('guided');
+    } else if (c.type === 'obd2') {
       handleObdVinChange(c.vin || '');
       handleObdCodeChange(c.code || '');
       setObdResults(c.result);
@@ -459,6 +466,12 @@ const KFZDiagnosePlatform = () => {
               🔧 OBD2-Diagnose
             </button>
             <button
+              className={`${styles.navButton} ${activeTab === 'guided' ? styles.navButtonActive : ''}`}
+              onClick={() => { if (activeTab !== 'guided') { setGuidedCase(null); setGuidedKey(k => k + 1); } setActiveTab('guided'); }}
+            >
+              🧭 Geführte Suche
+            </button>
+            <button
               className={`${styles.navButton} ${activeTab === 'history' ? styles.navButtonActive : ''}`}
               onClick={() => setActiveTab('history')}
             >
@@ -683,6 +696,15 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
               )}
             </div>
           </div>
+        )}
+
+        {/* Geführte Fehlersuche Tab */}
+        {activeTab === 'guided' && (
+          <GuidedDiagnosis
+            key={guidedKey}
+            initialCase={guidedCase}
+            onSave={(entry) => { addCase(entry); setHistoryVersion(v => v + 1); }}
+          />
         )}
 
         {/* Verlauf Tab */}

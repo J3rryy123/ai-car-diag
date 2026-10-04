@@ -38,7 +38,7 @@ const ChangePassword = () => {
       <input className={styles.input} type="password" placeholder="Neues Passwort (mind. 8 Zeichen)" autoComplete="new-password"
         value={form.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} style={{ marginTop: '0.5rem' }} />
       {error && <div className={styles.error} style={{ marginTop: '0.5rem' }}>⚠️ {error}</div>}
-      {message && <p style={{ color: '#047857', marginTop: '0.5rem' }}>{message}</p>}
+      {message && <p style={{ color: '#34d399', marginTop: '0.5rem' }}>{message}</p>}
       <button className={styles.button} type="submit" disabled={!form.currentPassword || !form.newPassword} style={{ marginTop: '0.5rem' }}>
         Passwort speichern
       </button>
@@ -92,7 +92,7 @@ const UserAdmin = ({ currentUserId }) => {
     }
   };
 
-  const small = { padding: '0.25rem 0.6rem', fontSize: '0.8rem', borderRadius: 6, border: '1px solid #d1d5db', background: 'white', cursor: 'pointer' };
+  const small = { padding: '0.25rem 0.6rem', fontSize: '0.8rem', borderRadius: 6, border: '1px solid #3d4858', background: '#1a212b', color: '#e5e7eb', cursor: 'pointer' };
 
   return (
     <div>
@@ -100,8 +100,8 @@ const UserAdmin = ({ currentUserId }) => {
       {error && <div className={styles.error}>⚠️ {error}</div>}
       <div style={{ display: 'grid', gap: '0.5rem', marginBottom: '1rem' }}>
         {users.map((u) => (
-          <div key={u.id} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '0.5rem 0.75rem', opacity: u.active ? 1 : 0.6 }}>
-            <strong>{u.displayName}</strong> <span style={{ color: '#6b7280' }}>({u.username})</span>
+          <div key={u.id} style={{ border: '1px solid #323c4a', borderRadius: 8, padding: '0.5rem 0.75rem', opacity: u.active ? 1 : 0.6 }}>
+            <strong>{u.displayName}</strong> <span style={{ color: '#9ca3af' }}>({u.username})</span>
             <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem' }}>
               {u.role === 'admin' ? '🛡️ Admin' : 'Mitarbeiter'}{!u.active && ' · deaktiviert'}
             </span>
@@ -115,7 +115,7 @@ const UserAdmin = ({ currentUserId }) => {
                   <button style={small} onClick={() => run(() => api(`/api/users/${u.id}`, 'PATCH', { active: !u.active }))}>
                     {u.active ? 'Deaktivieren' : 'Aktivieren'}
                   </button>
-                  <button style={{ ...small, color: '#dc2626' }} onClick={() => remove(u)}>Löschen</button>
+                  <button style={{ ...small, color: '#f87171' }} onClick={() => remove(u)}>Löschen</button>
                 </>
               )}
             </div>

@@ -18,8 +18,8 @@ body {
 }
 
 body {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-  color: #1f2937;
+  background: linear-gradient(135deg, #0b0f14 0%, #151b24 100%);
+  color: #e5e7eb;
 }
 
 /* Loading Animation */
@@ -46,13 +46,26 @@ input, textarea, button {
   font-family: inherit;
 }
 
+html {
+  color-scheme: dark;
+}
+
+input, textarea, select {
+  background: #11161d;
+  color: #e5e7eb;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #6b7280;
+}
+
 button {
   cursor: pointer;
 }
 
 /* Focus states */
 input:focus, textarea:focus, button:focus {
-  outline: 2px solid #2563eb;
+  outline: 2px solid #60a5fa;
   outline-offset: 2px;
 }
 

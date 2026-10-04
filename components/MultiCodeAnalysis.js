@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { parseCodes, analyzeCodes, SEVERITY_LABELS } from '../utils/multiCodeAnalysis';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
-const LEVEL_COLORS = { 0: '#6b7280', 1: '#16a34a', 2: '#d97706', 3: '#dc2626', 4: '#7f1d1d' };
+const LEVEL_COLORS = { 0: '#9ca3af', 1: '#4ade80', 2: '#fbbf24', 3: '#f87171', 4: '#fca5a5' };
 
 const MultiCodeAnalysis = ({ initialCase, onSave }) => {
   const [text, setText] = useState(initialCase?.codes?.join(' ') || '');
@@ -48,7 +48,7 @@ const MultiCodeAnalysis = ({ initialCase, onSave }) => {
           <div className={styles.formGroup}>
             <label className={styles.label}>
               Fehlercodes
-              <span style={{ color: '#6b7280', fontWeight: 'normal' }}> | getrennt durch Leerzeichen, Komma oder Zeilenumbruch</span>
+              <span style={{ color: '#9ca3af', fontWeight: 'normal' }}> | getrennt durch Leerzeichen, Komma oder Zeilenumbruch</span>
             </label>
             <textarea
               className={styles.input}
@@ -72,7 +72,7 @@ const MultiCodeAnalysis = ({ initialCase, onSave }) => {
           <div className={styles.placeholderCard}>
             <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📚</div>
             <h3>Auswertung bereit</h3>
-            <p style={{ color: '#6b7280' }}>
+            <p style={{ color: '#9ca3af' }}>
               Geben Sie alle ausgelesenen Fehlercodes ein. Die App sortiert sie nach Dringlichkeit und erkennt Zusammenhänge zwischen den Fehlern.
             </p>
           </div>
@@ -93,7 +93,7 @@ const MultiCodeAnalysis = ({ initialCase, onSave }) => {
                 </div>
               </div>
             ) : (
-              <p style={{ color: '#6b7280' }}>Keine bekannten Zusammenhänge erkannt. Die Codes sollten einzeln geprüft werden.</p>
+              <p style={{ color: '#9ca3af' }}>Keine bekannten Zusammenhänge erkannt. Die Codes sollten einzeln geprüft werden.</p>
             )}
 
             <div className={styles.section}>
@@ -109,7 +109,7 @@ const MultiCodeAnalysis = ({ initialCase, onSave }) => {
                       <span>{e.known ? e.info.category : e.info.systemHint || 'Bitte Herstellerdaten nutzen'}</span>
                     </div>
                     {e.known && (
-                      <p style={{ marginTop: '0.5rem', color: '#6b7280' }}>
+                      <p style={{ marginTop: '0.5rem', color: '#9ca3af' }}>
                         <strong>Mögliche Ursachen:</strong> {e.info.commonCauses.join(', ')}
                       </p>
                     )}
@@ -119,7 +119,7 @@ const MultiCodeAnalysis = ({ initialCase, onSave }) => {
             </div>
 
             {result.unknownCount > 0 && (
-              <p style={{ color: '#6b7280' }}>
+              <p style={{ color: '#9ca3af' }}>
                 {result.unknownCount} Code(s) sind nicht in der Datenbank und fließen nur in die Zusammenhangsregeln ein.
               </p>
             )}

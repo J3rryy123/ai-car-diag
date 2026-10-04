@@ -514,7 +514,7 @@ const KFZDiagnosePlatform = () => {
                 <div className={styles.formGroup}>
                   <label className={styles.label}>
                     Fahrzeug-Identifikationsnummer (VIN) - Optional
-                    <span style={{color: '#6b7280', fontWeight: 'normal'}}> | Für detaillierte Fahrzeugdaten</span>
+                    <span style={{color: '#9ca3af', fontWeight: 'normal'}}> | Für detaillierte Fahrzeugdaten</span>
                   </label>
                   <input
                     type="text"
@@ -552,7 +552,7 @@ const KFZDiagnosePlatform = () => {
                           )}
                         </div>
                       ) : (
-                        <div style={{color: '#dc2626'}}>
+                        <div style={{color: '#f87171'}}>
                           ❌ {vinDecoded.error || 'Invalid VIN'}
                         </div>
                       )}
@@ -643,7 +643,7 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
                 <div className={styles.placeholderCard}>
                   <div style={{fontSize: '4rem', marginBottom: '1rem'}}>🚗</div>
                   <h3>Bereit für die Diagnose</h3>
-                  <p style={{color: '#6b7280'}}>
+                  <p style={{color: '#9ca3af'}}>
                     Geben Sie Ihr Problem ein, wählen Sie den Motortyp und nutzen Sie optional die VIN für detaillierte Fahrzeugdaten.
                   </p>
                 </div>
@@ -686,7 +686,7 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
                 <div className={styles.formGroup}>
                   <label className={styles.label}>
                     Fahrzeug-Identifikationsnummer (VIN)
-                    <span style={{color: '#6b7280', fontWeight: 'normal'}}> | Für fahrzeugspezifische Diagnose</span>
+                    <span style={{color: '#9ca3af', fontWeight: 'normal'}}> | Für fahrzeugspezifische Diagnose</span>
                   </label>
                   <input
                     type="text"
@@ -728,7 +728,7 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
                           )}
                         </div>
                       ) : (
-                        <div style={{color: '#dc2626'}}>
+                        <div style={{color: '#f87171'}}>
                           ❌ {obdVinDecoded.error || 'Invalid VIN'}
                         </div>
                       )}
@@ -740,7 +740,7 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
                 <div className={styles.formGroup}>
                   <label className={styles.label}>
                     OBD2-Fehlercode
-                    <span style={{color: '#6b7280', fontWeight: 'normal'}}> | z.B. P0171, P0301, P0420</span>
+                    <span style={{color: '#9ca3af', fontWeight: 'normal'}}> | z.B. P0171, P0301, P0420</span>
                   </label>
                   <input
                     type="text"
@@ -789,7 +789,7 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
                 <div className={styles.placeholderCard}>
                   <div style={{fontSize: '4rem', marginBottom: '1rem'}}>🔧</div>
                   <h3>OBD2-Diagnose bereit</h3>
-                  <p style={{color: '#6b7280'}}>
+                  <p style={{color: '#9ca3af'}}>
                     Geben Sie die Fahrgestellnummer und den OBD2-Fehlercode ein für eine detaillierte Diagnose.
                   </p>
                 </div>

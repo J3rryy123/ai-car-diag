@@ -8,7 +8,8 @@ export default async function handler(req, res) {
   if (!dbConfigured()) {
     return res.status(503).json({ code: 'db_not_configured', message: 'Datenbank ist nicht konfiguriert.' });
   }
-  if (!requireAuth(req, res, { strict: true })) return;
+  const session = await requireAuth(req, res, { strict: true });
+  if (!session) return;
 
   try {
     if (req.method === 'GET') {
@@ -18,7 +19,8 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       const input = Array.isArray(req.body?.cases) ? req.body.cases.slice(0, LIST_LIMIT) : [req.body];
-      const rows = input.map(toRow).filter(Boolean);
+      const author = session.user ? session.user.display_name || session.user.username : '';
+      const rows = input.map(toRow).filter(Boolean).map((row) => (author ? { ...row, created_by: author } : row));
       if (!rows.length) return res.status(400).json({ message: 'Ungültiger Fall.' });
       const saved = await db('cases', { method: 'POST', body: rows, prefer: 'return=representation' });
       return res.status(201).json({ cases: saved.map(fromRow) });

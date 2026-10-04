@@ -127,7 +127,9 @@ const CaseHistory = ({ refreshKey, onOpen }) => {
               <strong>
                 {c.type === 'obd2' ? `🔧 ${c.code}` : c.type === 'guided' ? '🧭 Geführt' : c.type === 'multi' ? '📚 Mehrere Codes' : '🔍 Diagnose'} · {c.vehicle || 'Fahrzeug unbekannt'}
               </strong>
-              <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>{formatDate(c.createdAt)}</span>
+              <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+                {c.createdBy ? `${c.createdBy} · ` : ''}{formatDate(c.createdAt)}
+              </span>
             </div>
             <div className={styles.causeMeta}>
               {c.vin && <span>VIN: {c.vin}</span>}

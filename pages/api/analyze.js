@@ -214,7 +214,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
-  if (!requireAuth(req, res)) return;
+  if (!(await requireAuth(req, res))) return;
 
   const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
   if (isRateLimited(ip)) {

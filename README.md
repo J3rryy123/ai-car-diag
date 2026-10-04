@@ -21,8 +21,8 @@ Alle Werte werden als Umgebungsvariablen gesetzt (lokal in `.env.local`, auf Ver
 | `APP_PASSWORD` | Gemeinsames Passwort für den Zugriff. In Produktion zwingend setzen, sonst bleibt der Verlauf gesperrt. Ohne Passwort ist die App offen (nur lokal gedacht). |
 | `SESSION_SECRET` | Optional, signiert die Anmeldung (sonst aus `APP_PASSWORD` abgeleitet) |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Datenbank für den Diagnoseverlauf |
-| `CLAUDE_API_KEY` / `OPENAI_API_KEY` | KI-Analyse (sonst Demo-Modus) |
-| `CLAUDE_MODEL` / `OPENAI_MODEL` | optional, Modell überschreiben |
+| `CLAUDE_API_KEY` | Anthropic-Key für die KI-Analyse (sonst Demo-Modus) |
+| `CLAUDE_MODEL` | optional, Modell überschreiben |
 
 ## Datenbank für den Verlauf (Supabase)
 

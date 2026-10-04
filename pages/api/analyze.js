@@ -42,7 +42,7 @@ async function callClaude(prompt) {
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 2000,
+      max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
@@ -51,7 +51,17 @@ async function callClaude(prompt) {
     throw new Error(`Claude API Fehler (HTTP ${response.status})`);
   }
   const data = await response.json();
-  return { content: data.content?.[0]?.text || '', model: CLAUDE_MODEL };
+  // Antwort kann mehrere Blöcke enthalten (z. B. Denkblock vor dem Text) – alle Textblöcke zusammenfügen
+  const content = (data.content || [])
+    .filter((block) => block?.type === 'text' && typeof block.text === 'string')
+    .map((block) => block.text)
+    .join('\n');
+  if (!content.trim()) {
+    console.error('Claude API: leere Antwort', { stop_reason: data.stop_reason, blocks: (data.content || []).map((b) => b?.type) });
+    throw new Error(`Claude hat keine Textantwort geliefert (${data.stop_reason || 'unbekannter Grund'})`);
+  }
+  if (data.stop_reason === 'max_tokens') console.warn('Claude API: Antwort wegen max_tokens abgeschnitten');
+  return { content, model: CLAUDE_MODEL };
 }
 
 /**

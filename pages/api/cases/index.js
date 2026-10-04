@@ -1,6 +1,6 @@
 import { requireAuth } from '../../../utils/server/auth';
 import { db, dbConfigured, sendDbError } from '../../../utils/server/supabase';
-import { toRow, fromRow } from '../../../utils/server/caseMapping';
+import { toRow, fromRow, isScoped, ownOnly } from '../../../utils/server/caseMapping';
 
 const LIST_LIMIT = 200;
 
@@ -13,14 +13,14 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const rows = await db(`cases?select=*&order=created_at.desc&limit=${LIST_LIMIT}`);
-      return res.status(200).json({ cases: rows.map(fromRow) });
+      const rows = await db(`cases?select=*&order=created_at.desc&limit=${LIST_LIMIT}${ownOnly(session)}`);
+      return res.status(200).json({ cases: rows.map(fromRow), scope: isScoped(session) ? 'own' : 'all' });
     }
 
     if (req.method === 'POST') {
       const input = Array.isArray(req.body?.cases) ? req.body.cases.slice(0, LIST_LIMIT) : [req.body];
       const author = session.user ? session.user.display_name || session.user.username : '';
-      const rows = input.map(toRow).filter(Boolean).map((row) => (author ? { ...row, created_by: author } : row));
+      const rows = input.map(toRow).filter(Boolean).map((row) => (author ? { ...row, created_by: author, created_by_id: session.user.id } : row));
       if (!rows.length) return res.status(400).json({ message: 'Ungültiger Fall.' });
       const saved = await db('cases', { method: 'POST', body: rows, prefer: 'return=representation' });
       return res.status(201).json({ cases: saved.map(fromRow) });

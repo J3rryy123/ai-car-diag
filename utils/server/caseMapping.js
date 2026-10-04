@@ -3,6 +3,10 @@ const TYPES = ['diagnose', 'obd2', 'guided', 'multi'];
 const COLUMNS = ['id', 'created_at', 'type', 'customer', 'note', 'vehicle', 'vin', 'code', 'problem', 'created_by', 'data'];
 const MAX_DATA_BYTES = 200 * 1024;
 
+// Mitarbeiter sehen nur eigene Fälle; Administratoren (und Modi ohne Benutzerkonten) sehen alle.
+export const isScoped = (session) => !!session.user && session.user.role !== 'admin';
+export const ownOnly = (session) => (isScoped(session) ? `&created_by_id=eq.${session.user.id}` : '');
+
 export const clip = (value, max) => (typeof value === 'string' ? value.slice(0, max) : '');
 
 export function toRow(c) {

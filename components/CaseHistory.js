@@ -15,6 +15,7 @@ const SAVE_DELAY_MS = 600;
 const CaseHistory = ({ refreshKey, onOpen }) => {
   const [cases, setCases] = useState([]);
   const [storage, setStorage] = useState(null);
+  const [scope, setScope] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
@@ -28,6 +29,7 @@ const CaseHistory = ({ refreshKey, onOpen }) => {
       const result = await loadCases();
       setCases(result.cases);
       setStorage(result.storage);
+      setScope(result.scope || 'all');
       setLocalCount(result.storage === 'database' ? loadLocalCases().length : 0);
     } catch (err) {
       setError(err.message || 'Verlauf konnte nicht geladen werden.');
@@ -86,7 +88,7 @@ const CaseHistory = ({ refreshKey, onOpen }) => {
       <h2 className={styles.cardTitle}>🗂️ Diagnoseverlauf</h2>
       <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
         {storage === 'database'
-          ? 'Fälle werden in der Datenbank gespeichert und sind auf allen Geräten verfügbar.'
+          ? `Fälle werden in der Datenbank gespeichert und sind auf allen Geräten verfügbar.${scope === 'own' ? ' Du siehst nur deine eigenen Fälle.' : ''}`
           : 'Keine Datenbank konfiguriert: Fälle werden nur lokal in diesem Browser gespeichert.'}{' '}
         Kunde und Notiz lassen sich pro Fall ergänzen.
       </p>

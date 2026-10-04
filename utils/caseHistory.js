@@ -48,7 +48,7 @@ async function request(path, options) {
 export async function loadCases() {
   const { fallback, data } = await request('/api/cases');
   if (fallback) return { cases: loadLocalCases(), storage: 'local' };
-  return { cases: data.cases, storage: 'database' };
+  return { cases: data.cases, storage: 'database', scope: data.scope };
 }
 
 export async function addCase(entry) {

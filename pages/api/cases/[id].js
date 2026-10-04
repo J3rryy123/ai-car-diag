@@ -1,6 +1,6 @@
 import { requireAuth } from '../../../utils/server/auth';
 import { db, dbConfigured, sendDbError } from '../../../utils/server/supabase';
-import { fromRow, clip } from '../../../utils/server/caseMapping';
+import { fromRow, clip, ownOnly } from '../../../utils/server/caseMapping';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -8,7 +8,8 @@ export default async function handler(req, res) {
   if (!dbConfigured()) {
     return res.status(503).json({ code: 'db_not_configured', message: 'Datenbank ist nicht konfiguriert.' });
   }
-  if (!(await requireAuth(req, res, { strict: true }))) return;
+  const session = await requireAuth(req, res, { strict: true });
+  if (!session) return;
 
   const { id } = req.query;
   if (!UUID.test(id)) return res.status(400).json({ message: 'Ungültige ID.' });
@@ -19,13 +20,14 @@ export default async function handler(req, res) {
       if (typeof req.body?.customer === 'string') changes.customer = clip(req.body.customer, 200);
       if (typeof req.body?.note === 'string') changes.note = clip(req.body.note, 5000);
       if (!Object.keys(changes).length) return res.status(400).json({ message: 'Keine Änderungen.' });
-      const rows = await db(`cases?id=eq.${id}`, { method: 'PATCH', body: changes, prefer: 'return=representation' });
+      const rows = await db(`cases?id=eq.${id}${ownOnly(session)}`, { method: 'PATCH', body: changes, prefer: 'return=representation' });
       if (!rows.length) return res.status(404).json({ message: 'Fall nicht gefunden.' });
       return res.status(200).json({ case: fromRow(rows[0]) });
     }
 
     if (req.method === 'DELETE') {
-      await db(`cases?id=eq.${id}`, { method: 'DELETE' });
+      const rows = await db(`cases?id=eq.${id}${ownOnly(session)}`, { method: 'DELETE', prefer: 'return=representation' });
+      if (!rows.length) return res.status(404).json({ message: 'Fall nicht gefunden.' });
       return res.status(200).json({ ok: true });
     }
 

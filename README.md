@@ -39,7 +39,7 @@ Sobald die Datenbank konfiguriert ist, melden sich Personen mit **Benutzername +
 2. Beim ersten Aufruf erscheint die **Ersteinrichtung**: Administrator anlegen. Als Einrichtungscode dient `APP_PASSWORD`.
 3. Über den Namen oben rechts (👤) öffnet der Administrator die **Benutzerverwaltung**: Benutzer anlegen, Passwort setzen, Rolle ändern, deaktivieren, löschen. Jeder kann dort sein eigenes Passwort ändern.
 
-Rollen: *Administrator* (inkl. Benutzerverwaltung) und *Mitarbeiter*. Der Diagnoseverlauf ist für alle gemeinsam sichtbar; bei jedem Fall steht, wer ihn angelegt hat. Ohne Datenbank bleibt es beim gemeinsamen Passwort.
+Rollen: *Administrator* (inkl. Benutzerverwaltung) und *Mitarbeiter*. Mitarbeiter sehen im Diagnoseverlauf nur ihre eigenen Fälle, Administratoren sehen alle (mit Angabe, wer den Fall angelegt hat). Fälle aus der Zeit vor der Benutzerverwaltung sind nur für Administratoren sichtbar. Ohne Datenbank bleibt es beim gemeinsamen Passwort.
 
 Ohne Datenbank speichert die App den Verlauf lokal im Browser. Sobald die Datenbank konfiguriert ist, lassen sich lokale Fälle im Verlauf-Tab mit einem Klick übernehmen.
 

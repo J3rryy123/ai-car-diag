@@ -32,3 +32,8 @@ alter table public.app_users enable row level security;
 
 -- Wer hat den Fall angelegt? (Anzeigename zum Zeitpunkt der Erstellung)
 alter table public.cases add column if not exists created_by text not null default '';
+
+-- Sichtbarkeit: Mitarbeiter sehen nur eigene Fälle (Administratoren alle).
+-- Ältere Fälle ohne Zuordnung sind nur für Administratoren sichtbar.
+alter table public.cases add column if not exists created_by_id uuid references public.app_users (id) on delete set null;
+create index if not exists cases_created_by_id_idx on public.cases (created_by_id);

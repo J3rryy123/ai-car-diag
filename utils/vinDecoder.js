@@ -214,6 +214,27 @@ const VIN_DECODER = {
     return { modelYear: candidates[0], confidence: 'estimated' };
   },
 
+  // Verbindet die lokale Auswertung mit Daten aus der Fahrzeugdatenbank (/api/vin).
+  // Lokal erkannte Werte (Hersteller, Land) bleiben maßgeblich; die Datenbank liefert Modell und Motor.
+  mergeRemote: (decoded, remote) => {
+    if (!decoded || !decoded.isValid || !remote) return decoded;
+    const year = { ...decoded.year };
+    // Ein von der Datenbank bestätigtes Baujahr ersetzt die reine Schätzung nicht, ergänzt sie aber
+    if (!year.modelYear && remote.modelYear) {
+      year.modelYear = remote.modelYear;
+      year.age = Math.max(0, new Date().getFullYear() - remote.modelYear);
+      year.confidence = 'estimated';
+    }
+    return {
+      ...decoded,
+      model: remote.model || decoded.model,
+      engine: remote.engine || decoded.engine,
+      year,
+      body: { bodyClass: remote.bodyClass, driveType: remote.driveType, transmission: remote.transmission },
+      dataSource: remote.source
+    };
+  },
+
   // Hauptfunktion. Liefert nur, was die VIN wirklich hergibt (Hersteller, Land, Baujahr);
   // Modell und Motor lassen sich aus der VIN ohne Herstellerdatenbank nicht ermitteln (null).
   decodeVIN: function (vin) {

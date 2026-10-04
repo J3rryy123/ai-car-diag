@@ -1,5 +1,5 @@
 // main Component
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import VIN_DECODER from '../utils/vinDecoder';
 import OBD2_DECODER from '../utils/obdDecoder';
 import CaseHistory from './CaseHistory';
@@ -26,10 +26,17 @@ function VinInfo({ decoded, styles: s }) {
       </div>
     );
   }
-  const { manufacturer, year } = decoded;
+  const { manufacturer, year, model, engine } = decoded;
+  const engineParts = [engine?.displacement, engine?.fuelType, engine?.power, engine?.name].filter(Boolean);
+  const hint = {
+    loading: 'Modell- und Motordaten werden abgefragt …',
+    none: 'Zu dieser VIN liegen keine Modell-/Motordaten vor – bitte laut Fahrzeugschein ergänzen.',
+    unavailable: 'Fahrzeugdatenbank nicht erreichbar – bitte Modell und Motor manuell angeben.'
+  }[decoded.lookup];
   return (
     <div className={`${s.vinInfo} ${s.vinInfoValid}`}>
       <div><strong>Hersteller:</strong> {manufacturer?.name} ({manufacturer?.country})</div>
+      {model?.series && <div><strong>Modell:</strong> {model.series}</div>}
       {year?.modelYear && (
         <div>
           <strong>Baujahr:</strong> {year.modelYear}
@@ -37,9 +44,13 @@ function VinInfo({ decoded, styles: s }) {
           {year.age != null ? ` · ${year.age} Jahre alt` : ''}
         </div>
       )}
-      <div style={{color: '#9ca3af', fontSize: '0.85em'}}>
-        Modell und Motor bitte manuell angeben (laut Fahrzeugschein), sie lassen sich aus der VIN nicht sicher ableiten.
-      </div>
+      {engineParts.length > 0 && <div><strong>Motor:</strong> {engineParts.join(' · ')}</div>}
+      {hint && <div style={{color: '#9ca3af', fontSize: '0.85em'}}>{hint}</div>}
+      {decoded.lookup === 'done' && (
+        <div style={{color: '#9ca3af', fontSize: '0.85em'}}>
+          Quelle: {decoded.dataSource}. Bitte mit dem Fahrzeugschein abgleichen.
+        </div>
+      )}
     </div>
   );
 }
@@ -77,32 +88,73 @@ const KFZDiagnosePlatform = () => {
   const [multiCase, setMultiCase] = useState(null);
   const [multiKey, setMultiKey] = useState(0);
 
+  // Modell-/Motordaten aus der Fahrzeugdatenbank nachladen (lokale Erkennung bleibt als Fallback)
+  const lookupSeq = useRef({ diagnose: 0, obd: 0 });
+  const enrichVin = async (target, cleaned, local, setDecoded, onMerged) => {
+    const seq = ++lookupSeq.current[target];
+    setDecoded({ ...local, lookup: 'loading' });
+    try {
+      const response = await fetch('/api/vin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vin: cleaned })
+      });
+      if (seq !== lookupSeq.current[target]) return; // veraltete Antwort
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const { found, data } = await response.json();
+      if (!found) {
+        setDecoded({ ...local, lookup: 'none' });
+        return;
+      }
+      const merged = { ...VIN_DECODER.mergeRemote(local, data), lookup: 'done' };
+      setDecoded(merged);
+      onMerged?.(merged);
+    } catch {
+      if (seq === lookupSeq.current[target]) setDecoded({ ...local, lookup: 'unavailable' });
+    }
+  };
+
+  const FORM_FUELS = { Benzin: 'benzin', Diesel: 'diesel', Hybrid: 'hybrid', Elektro: 'elektro' };
+
   // VINDecoder for Diagnose Tab
   const handleVinChange = (inputVin) => {
     setVin(inputVin);
     const cleaned = VIN_DECODER.cleanVIN(inputVin);
     if (cleaned.length < 17) {
+      lookupSeq.current.diagnose++;
       setVinDecoded(null);
       return;
     }
     const decoded = VIN_DECODER.decodeVIN(cleaned);
     setVinDecoded(decoded);
-    if (decoded && decoded.isValid) {
-      // Nur sicher erkannte Werte ins Formular übernehmen
+    if (!decoded?.isValid) return;
+    // Nur sicher erkannte Werte ins Formular übernehmen
+    setCarDetails(prev => ({
+      ...prev,
+      make: decoded.manufacturer?.name || prev.make,
+      year: decoded.year?.modelYear ? String(decoded.year.modelYear) : prev.year
+    }));
+    enrichVin('diagnose', cleaned, decoded, setVinDecoded, (merged) => {
       setCarDetails(prev => ({
         ...prev,
-        make: decoded.manufacturer?.name || prev.make,
-        model: decoded.model?.series || prev.model,
-        year: decoded.year?.modelYear ? String(decoded.year.modelYear) : prev.year
+        model: merged.model?.series || prev.model,
+        engineType: FORM_FUELS[merged.engine?.fuelType] || prev.engineType
       }));
-    }
+    });
   };
 
   // VINDecoder for OBD2 Tab
   const handleObdVinChange = (inputVin) => {
     setObdVin(inputVin);
     const cleaned = VIN_DECODER.cleanVIN(inputVin);
-    setObdVinDecoded(cleaned.length >= 17 ? VIN_DECODER.decodeVIN(cleaned) : null);
+    if (cleaned.length < 17) {
+      lookupSeq.current.obd++;
+      setObdVinDecoded(null);
+      return;
+    }
+    const decoded = VIN_DECODER.decodeVIN(cleaned);
+    setObdVinDecoded(decoded);
+    if (decoded?.isValid) enrichVin('obd', cleaned, decoded, setObdVinDecoded);
   };
 
   // OBD2 Code Decoder

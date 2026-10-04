@@ -79,6 +79,20 @@ async function runAI({ prompt, suffix, fallback }) {
 
 // --- Prompts ---------------------------------------------------------------
 
+// Modell-/Motordaten nur ausgeben, wenn sie aus der Fahrzeugdatenbank bekannt sind
+function describeEngine(decoded) {
+  const e = decoded?.engine;
+  const lines = [];
+  if (decoded?.model?.series) lines.push(`- Model: ${clean(decoded.model.series)}`);
+  if (e) {
+    const parts = [e.displacement, e.fuelType, e.power, e.cylinders ? `${e.cylinders} cylinders` : null, e.turbo ? 'turbo' : null, e.name]
+      .filter(Boolean)
+      .map((v) => clean(String(v)));
+    if (parts.length) lines.push(`- Engine: ${parts.join(', ')}`);
+  }
+  return lines.length ? `${lines.join('\n')}\n` : '';
+}
+
 function buildObdPrompt(obdCode, codeInfo, obdVin, obdVinDecoded) {
   let vehicleContext = '';
   if (obdVinDecoded && obdVinDecoded.isValid) {
@@ -86,7 +100,7 @@ function buildObdPrompt(obdCode, codeInfo, obdVin, obdVinDecoded) {
 VIN: ${obdVin}
 VIN Analysis:
 - Manufacturer: ${clean(obdVinDecoded.manufacturer?.name) || 'Unknown'} (${clean(obdVinDecoded.manufacturer?.country) || 'Unknown'})
-${obdVinDecoded.year?.modelYear ? `- Model Year: ${clean(String(obdVinDecoded.year.modelYear))}${obdVinDecoded.year.confidence === 'estimated' ? ' (estimated from VIN)' : ''}\n` : ''}`;
+${obdVinDecoded.year?.modelYear ? `- Model Year: ${clean(String(obdVinDecoded.year.modelYear))}${obdVinDecoded.year.confidence === 'estimated' ? ' (estimated from VIN)' : ''}\n` : ''}${describeEngine(obdVinDecoded)}`;
   }
 
   return `Analyze the following OBD2 diagnostic trouble code as an expert automotive technician:
@@ -139,7 +153,7 @@ function buildDiagnosePrompt(problem, carDetails, vin, vinDecoded) {
 VIN: ${vin}
 VIN Analysis:
 - Manufacturer: ${clean(vinDecoded.manufacturer?.name) || 'Unknown'} (${clean(vinDecoded.manufacturer?.country) || 'Unknown'})
-${vinDecoded.year?.modelYear ? `- Model Year: ${clean(String(vinDecoded.year.modelYear))}${vinDecoded.year.confidence === 'estimated' ? ' (estimated from VIN)' : ''}\n` : ''}`;
+${vinDecoded.year?.modelYear ? `- Model Year: ${clean(String(vinDecoded.year.modelYear))}${vinDecoded.year.confidence === 'estimated' ? ' (estimated from VIN)' : ''}\n` : ''}${describeEngine(vinDecoded)}`;
   }
 
   return `Analyze the following automotive problem as an expert mechanic:

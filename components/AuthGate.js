@@ -134,6 +134,7 @@ const AuthGate = ({ children }) => {
           {state.user && (
             <button onClick={() => setAccountOpen(true)} style={barButton}>
               👤 {state.user.displayName}
+              {state.user.role === 'admin' && <span className="auth-bar-label"> · ⚙️ Benutzerverwaltung</span>}
             </button>
           )}
           <button onClick={logout} style={barButton}>Abmelden</button>

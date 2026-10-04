@@ -75,3 +75,9 @@ input:focus, textarea:focus, button:focus {
     font-size: 14px;
   }
 }
+
+@media (max-width: 768px) {
+  .auth-bar-label {
+    display: none;
+  }
+}

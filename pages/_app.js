@@ -6,7 +6,7 @@ export default function App({ Component, pageProps }) {
     <>
       <Head>
         {/* Brand favicon and page title */}
-        <title>Smart Repair Service</title>
+        <title>ai-car-diag</title>
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/icon.png" />
       </Head>

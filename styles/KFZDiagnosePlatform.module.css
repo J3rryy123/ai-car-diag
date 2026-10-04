@@ -41,7 +41,7 @@
   width: 3.25rem;
   height: 3.25rem;
   border-radius: 12px;
-  object-fit: cover;
+  object-fit: contain;
   flex-shrink: 0;
 }
 

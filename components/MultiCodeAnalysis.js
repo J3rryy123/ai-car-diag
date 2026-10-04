@@ -106,7 +106,7 @@ const MultiCodeAnalysis = ({ initialCase, onSave }) => {
                       <span style={{ color: LEVEL_COLORS[e.level], fontWeight: 600 }}>{SEVERITY_LABELS[e.level]}</span>
                     </div>
                     <div className={styles.causeMeta}>
-                      <span>{e.known ? e.info.category : 'Bitte Herstellerdaten bzw. Einzelabfrage nutzen'}</span>
+                      <span>{e.known ? e.info.category : e.info.systemHint || 'Bitte Herstellerdaten nutzen'}</span>
                     </div>
                     {e.known && (
                       <p style={{ marginTop: '0.5rem', color: '#6b7280' }}>

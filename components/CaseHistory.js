@@ -86,7 +86,7 @@ const CaseHistory = ({ refreshKey, onOpen }) => {
   return (
     <div className={styles.card}>
       <h2 className={styles.cardTitle}>🗂️ Diagnoseverlauf</h2>
-      <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
+      <p style={{ color: '#9ca3af', marginBottom: '1rem' }}>
         {storage === 'database'
           ? `Fälle werden in der Datenbank gespeichert und sind auf allen Geräten verfügbar.${scope === 'own' ? ' Du siehst nur deine eigenen Fälle.' : ''}`
           : 'Keine Datenbank konfiguriert: Fälle werden nur lokal in diesem Browser gespeichert.'}{' '}
@@ -114,10 +114,10 @@ const CaseHistory = ({ refreshKey, onOpen }) => {
         style={{ marginBottom: '1rem' }}
       />
 
-      {loading && <p style={{ color: '#6b7280' }}>Lade Verlauf …</p>}
+      {loading && <p style={{ color: '#9ca3af' }}>Lade Verlauf …</p>}
 
       {!loading && visible.length === 0 && (
-        <p style={{ color: '#6b7280' }}>
+        <p style={{ color: '#9ca3af' }}>
           {cases.length === 0 ? 'Noch keine Fälle gespeichert. Jede Analyse wird automatisch hier abgelegt.' : 'Keine Treffer.'}
         </p>
       )}
@@ -129,7 +129,7 @@ const CaseHistory = ({ refreshKey, onOpen }) => {
               <strong>
                 {c.type === 'obd2' ? `🔧 ${c.code}` : c.type === 'guided' ? '🧭 Geführt' : c.type === 'multi' ? '📚 Mehrere Codes' : '🔍 Diagnose'} · {c.vehicle || 'Fahrzeug unbekannt'}
               </strong>
-              <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+              <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>
                 {c.createdBy ? `${c.createdBy} · ` : ''}{formatDate(c.createdAt)}
               </span>
             </div>

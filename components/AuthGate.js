@@ -82,10 +82,11 @@ const AuthGate = ({ children }) => {
     return (
       <div className={styles.container}>
         <main className={styles.main} style={{ maxWidth: '28rem', margin: '4rem auto' }}>
+          <img className={styles.logo} src="/logo.png" alt="Smart Repair Service" style={{ margin: '0 auto 1.5rem' }} />
           <form className={styles.card} onSubmit={submit}>
             <h2 className={styles.cardTitle}>{setup ? '👤 Ersteinrichtung' : '🔒 Anmeldung'}</h2>
             {setup && (
-              <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
+              <p style={{ color: '#9ca3af', marginBottom: '1rem' }}>
                 Noch kein Benutzer vorhanden. Lege den ersten Administrator an – weitere Personen kannst du danach selbst hinzufügen.
               </p>
             )}
@@ -123,7 +124,7 @@ const AuthGate = ({ children }) => {
     );
   }
 
-  const barButton = { padding: '0.35rem 0.7rem', fontSize: '0.8rem', borderRadius: 8, border: '1px solid #d1d5db', background: 'white', cursor: 'pointer' };
+  const barButton = { padding: '0.35rem 0.7rem', fontSize: '0.8rem', borderRadius: 8, border: '1px solid #3d4858', background: '#1a212b', color: '#e5e7eb', cursor: 'pointer' };
 
   return (
     <>
@@ -133,6 +134,7 @@ const AuthGate = ({ children }) => {
           {state.user && (
             <button onClick={() => setAccountOpen(true)} style={barButton}>
               👤 {state.user.displayName}
+              {state.user.role === 'admin' && <span className="auth-bar-label"> · ⚙️ Benutzerverwaltung</span>}
             </button>
           )}
           <button onClick={logout} style={barButton}>Abmelden</button>

@@ -31,7 +31,7 @@ const GuidedDiagnosis = ({ initialCase, onSave }) => {
     return (
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>🧭 Geführte Fehlersuche</h2>
-        <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
+        <p style={{ color: '#9ca3af', marginBottom: '1rem' }}>
           Wählen Sie das Fehlerbild. Sie werden Schritt für Schritt durch die Prüfungen geführt und halten Messwerte fest.
         </p>
         <div style={{ display: 'grid', gap: '0.75rem' }}>
@@ -85,7 +85,7 @@ const GuidedDiagnosis = ({ initialCase, onSave }) => {
         />
       </div>
 
-      <p style={{ margin: '0.5rem 0 1rem', color: '#6b7280' }}>
+      <p style={{ margin: '0.5rem 0 1rem', color: '#9ca3af' }}>
         Fortschritt: {done} von {steps.length} Schritten · Richtwerte sind allgemein, Herstellerangaben haben Vorrang.
       </p>
 
@@ -98,7 +98,7 @@ const GuidedDiagnosis = ({ initialCase, onSave }) => {
                 <strong>{index + 1}. {step.title}</strong>
               </div>
               <p style={{ margin: '0.5rem 0' }}>{step.how}</p>
-              <p style={{ margin: '0.25rem 0', color: '#6b7280' }}><strong>Soll:</strong> {step.expected}</p>
+              <p style={{ margin: '0.25rem 0', color: '#9ca3af' }}><strong>Soll:</strong> {step.expected}</p>
 
               {step.measure && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
@@ -122,8 +122,8 @@ const GuidedDiagnosis = ({ initialCase, onSave }) => {
                     style={{
                       width: 'auto',
                       padding: '0.5rem 0.9rem',
-                      background: state.status === s.key ? (s.key === 'fail' ? '#dc2626' : s.key === 'ok' ? '#16a34a' : '#6b7280') : '#e5e7eb',
-                      color: state.status === s.key ? 'white' : '#1f2937'
+                      background: state.status === s.key ? (s.key === 'fail' ? '#dc2626' : s.key === 'ok' ? '#16a34a' : '#6b7280') : '#323c4a',
+                      color: state.status === s.key ? 'white' : '#e5e7eb'
                     }}
                   >
                     {s.label}

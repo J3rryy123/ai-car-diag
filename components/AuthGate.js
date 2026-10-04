@@ -51,6 +51,8 @@ const AuthGate = ({ children }) => {
       <div className={styles.container}>
         <main className={styles.main} style={{ maxWidth: '28rem', margin: '4rem auto' }}>
           <form className={styles.card} onSubmit={login}>
+            {/* Full brand logo on the login screen */}
+            <img src="/logo.png" alt="Smart Repair Service" style={{ display: 'block', width: '100%', maxWidth: 320, margin: '0 auto 1rem', borderRadius: 12 }} />
             <h2 className={styles.cardTitle}>🔒 Anmeldung</h2>
             <div className={styles.formGroup}>
               <label className={styles.label} htmlFor="app-password">Passwort</label>

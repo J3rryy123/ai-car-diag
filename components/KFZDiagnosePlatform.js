@@ -470,9 +470,10 @@ const KFZDiagnosePlatform = () => {
       <header className={styles.header}>
         <div className={styles.headerContent}>
           <div className={styles.headerLeft}>
-            <div className={styles.headerIcon}>🚗</div>
+            {/* Brand logo (icon only; full logo is in /public/logo.png) */}
+            <img className={styles.headerLogo} src="/icon.png" alt="Smart Repair Service logo" />
             <div>
-              <h1 className={styles.title}>AI Car Diag</h1>
+              <h1 className={styles.title}>Smart Repair Service</h1>
               <p className={styles.subtitle}>
                 KI-gestützte Fahrzeugdiagnose 
               </p>

@@ -36,6 +36,15 @@
   color: white;
 }
 
+/* Brand logo shown in the header */
+.headerLogo {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
 .title {
   font-size: clamp(1.5rem, 4vw, 2.5rem);
   font-weight: bold;
@@ -693,6 +702,11 @@
   .headerIcon {
     padding: 0.5rem;
     font-size: 1.25rem;
+  }
+
+  .headerLogo {
+    width: 2.5rem;
+    height: 2.5rem;
   }
   
   .detailsPanel {

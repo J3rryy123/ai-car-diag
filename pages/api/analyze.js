@@ -1,13 +1,22 @@
 import { requireAuth } from '../../utils/server/auth';
 
+// Claude kann länger brauchen als das Standard-Zeitlimit von Vercel
+export const config = { maxDuration: 60 };
+
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-5-5';
+
+// Zeitbudget für einen Claude-Aufruf inkl. Wiederholungen (unter maxDuration)
+const CLAUDE_TOTAL_BUDGET_MS = 52 * 1000;
+const CLAUDE_ATTEMPT_TIMEOUT_MS = 28 * 1000;
+const CLAUDE_MAX_ATTEMPTS = 3;
+const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504, 529]);
 
 const MAX_PROBLEM_LENGTH = 2000;
 const MAX_FIELD_LENGTH = 100;
 const OBD_CODE_PATTERN = /^[PBCU][0-9A-F]{4}$/;
 const VIN_PATTERN = /^[A-HJ-NPR-Z0-9]{17}$/;
 
-const LANGUAGE_NOTE = 'Antworte vollständig auf Deutsch. Gib ausschließlich das JSON-Objekt zurück, ohne weiteren Text.';
+const LANGUAGE_NOTE = 'Antworte vollständig auf Deutsch und übergib das Ergebnis über das bereitgestellte Tool.';
 
 // Simple in-memory rate limit (per server instance) to protect the API keys from abuse
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -30,49 +39,147 @@ function isRateLimited(ip) {
 const clean = (value, max = MAX_FIELD_LENGTH) =>
   typeof value === 'string' ? value.replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, max) : '';
 
+
+// --- Strukturierte Antworten (Tool-Aufruf statt Freitext-JSON) ---------------
+
+const CAUSES_SCHEMA = (extra = {}) => ({
+  type: 'array',
+  items: {
+    type: 'object',
+    properties: {
+      cause: { type: 'string' },
+      probability: { type: 'number', description: 'Wahrscheinlichkeit in Prozent (0-100)' },
+      cost: { type: 'string', description: 'Geschätzte Kosten, z. B. 200-400€' },
+      ...extra,
+    },
+    required: ['cause', 'probability', 'cost'],
+  },
+});
+
+const DIAGNOSE_TOOL = {
+  name: 'report_diagnosis',
+  description: 'Gibt die strukturierte Fahrzeugdiagnose zurück.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      diagnosis: { type: 'string', description: 'Ausführliche technische Diagnose' },
+      confidence: { type: 'number', description: 'Sicherheit der Diagnose in Prozent (0-100)' },
+      possibleCauses: CAUSES_SCHEMA({ commonFor: { type: 'string' } }),
+      nextSteps: { type: 'array', items: { type: 'string' } },
+      urgency: { type: 'string' },
+      vehicleSpecific: { type: 'string' },
+      maintenanceRecommendations: { type: 'string' },
+    },
+    required: ['diagnosis', 'confidence', 'possibleCauses', 'nextSteps', 'urgency'],
+  },
+};
+
+const OBD_TOOL = {
+  name: 'report_obd_diagnosis',
+  description: 'Gibt die strukturierte Auswertung eines OBD2-Fehlercodes zurück.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      diagnosis: { type: 'string', description: 'Technische Analyse des Codes' },
+      category: { type: 'string' },
+      severity: { type: 'string' },
+      confidence: { type: 'number', description: 'Sicherheit in Prozent (0-100)' },
+      symptoms: { type: 'array', items: { type: 'string' } },
+      possibleCauses: CAUSES_SCHEMA({ urgency: { type: 'string' } }),
+      nextSteps: { type: 'array', items: { type: 'string' } },
+      urgency: { type: 'string' },
+      estimatedCost: { type: 'string' },
+    },
+    required: ['diagnosis', 'confidence', 'possibleCauses', 'nextSteps', 'urgency'],
+  },
+};
+
 // --- AI provider calls -----------------------------------------------------
 
-async function callClaude(prompt) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.CLAUDE_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Ein Aufruf mit Zeitlimit; wirft Fehler mit `retryable`-Flag
+async function callClaudeOnce(prompt, tool, timeoutMs) {
+  let response;
+  try {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }],
+        // Antwort erzwingt das Tool → garantiert strukturiertes Ergebnis
+        tools: [tool],
+        tool_choice: { type: 'tool', name: tool.name },
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (error) {
+    const timedOut = error?.name === 'TimeoutError' || error?.name === 'AbortError';
+    const err = new Error(timedOut ? 'Claude hat nicht rechtzeitig geantwortet' : `Claude nicht erreichbar (${error.message})`);
+    err.retryable = true;
+    throw err;
+  }
   if (!response.ok) {
     console.error('Claude API error:', response.status, await response.text());
-    throw new Error(`Claude API Fehler (HTTP ${response.status})`);
+    const err = new Error(`Claude API Fehler (HTTP ${response.status})`);
+    err.retryable = RETRYABLE_STATUS.has(response.status);
+    err.retryAfterMs = Number(response.headers.get('retry-after')) * 1000 || 0;
+    throw err;
   }
   const data = await response.json();
-  // Antwort kann mehrere Blöcke enthalten (z. B. Denkblock vor dem Text) – alle Textblöcke zusammenfügen
-  const content = (data.content || [])
-    .filter((block) => block?.type === 'text' && typeof block.text === 'string')
-    .map((block) => block.text)
-    .join('\n');
-  if (!content.trim()) {
-    console.error('Claude API: leere Antwort', { stop_reason: data.stop_reason, blocks: (data.content || []).map((b) => b?.type) });
-    throw new Error(`Claude hat keine Textantwort geliefert (${data.stop_reason || 'unbekannter Grund'})`);
-  }
   if (data.stop_reason === 'max_tokens') console.warn('Claude API: Antwort wegen max_tokens abgeschnitten');
-  return { content, model: CLAUDE_MODEL };
+
+  const blocks = data.content || [];
+  const toolInput = blocks.find((b) => b?.type === 'tool_use' && b.input && typeof b.input === 'object')?.input;
+  // Antwort kann mehrere Blöcke enthalten (z. B. Denkblock vor dem Text) – alle Textblöcke zusammenfügen
+  const text = blocks
+    .filter((b) => b?.type === 'text' && typeof b.text === 'string')
+    .map((b) => b.text)
+    .join('\n');
+  if (!toolInput && !text.trim()) {
+    console.error('Claude API: leere Antwort', { stop_reason: data.stop_reason, blocks: blocks.map((b) => b?.type) });
+    throw new Error(`Claude hat keine Antwort geliefert (${data.stop_reason || 'unbekannter Grund'})`);
+  }
+  return { toolInput, content: text, model: CLAUDE_MODEL };
+}
+
+// Mit Wiederholung bei Überlastung/Zeitüberschreitung, solange das Zeitbudget reicht
+async function callClaude(prompt, tool) {
+  const startedAt = Date.now();
+  let lastError;
+  for (let attempt = 1; attempt <= CLAUDE_MAX_ATTEMPTS; attempt++) {
+    const remaining = CLAUDE_TOTAL_BUDGET_MS - (Date.now() - startedAt);
+    if (remaining < 5000) break;
+    try {
+      return await callClaudeOnce(prompt, tool, Math.min(CLAUDE_ATTEMPT_TIMEOUT_MS, remaining));
+    } catch (error) {
+      lastError = error;
+      if (!error.retryable || attempt === CLAUDE_MAX_ATTEMPTS) break;
+      await sleep(Math.min(error.retryAfterMs || 1000 * attempt, 5000));
+    }
+  }
+  throw lastError || new Error('Claude hat nicht rechtzeitig geantwortet');
 }
 
 /**
  * Runs the prompt against the Claude API.
  * Returns { analysis, mode, modelUsed, error } or null when no API key is configured.
  */
-async function runAI({ prompt, suffix, fallback }) {
+async function runAI({ prompt, tool, suffix, fallback }) {
   if (!process.env.CLAUDE_API_KEY) return null;
 
   try {
-    const { content, model } = await callClaude(prompt);
+    const { toolInput, content, model } = await callClaude(prompt, tool);
+    if (toolInput) {
+      return { analysis: toolInput, mode: `claude${suffix}`, modelUsed: model, error: null };
+    }
+    // Ohne Tool-Aufruf: JSON im Text suchen, sonst Freitext-Fallback
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
@@ -249,6 +356,7 @@ export default async function handler(req, res) {
     const obdVinDecoded = obdVin ? body.obdVinDecoded : null;
 
     return respond(res, debug, {
+      tool: OBD_TOOL,
       suffix: '-obd2',
       prompt: buildObdPrompt(obdCode, codeInfo, obdVin, obdVinDecoded),
       fallback: (content) => createOBD2FallbackAnalysis(content, obdCode, codeInfo),
@@ -271,6 +379,7 @@ export default async function handler(req, res) {
   const vinDecoded = vin ? body.vinDecoded : null;
 
   return respond(res, debug, {
+    tool: DIAGNOSE_TOOL,
     suffix: '',
     prompt: buildDiagnosePrompt(problem, carDetails, vin, vinDecoded),
     fallback: (content) => createFallbackAnalysis(content),
@@ -279,14 +388,16 @@ export default async function handler(req, res) {
   });
 }
 
-async function respond(res, debug, { suffix, prompt, fallback, demo, demoMode }) {
+async function respond(res, debug, { tool, suffix, prompt, fallback, demo, demoMode }) {
   try {
-    const result = await runAI({ prompt, suffix, fallback });
+    const result = await runAI({ prompt, tool, suffix, fallback });
     if (result?.analysis) {
       return res.status(200).json({ ...result, debug, timestamp: new Date().toISOString() });
     }
     return res.status(200).json({
       analysis: demo(),
+      demo: true,
+      demoReason: result?.error ? 'error' : 'no_api_key',
       mode: result?.error ? `${demoMode}-error` : demoMode,
       modelUsed: null,
       debug,
@@ -297,6 +408,8 @@ async function respond(res, debug, { suffix, prompt, fallback, demo, demoMode })
     console.error('Analysis error:', error);
     return res.status(200).json({
       analysis: demo(),
+      demo: true,
+      demoReason: 'error',
       mode: `${demoMode}-error`,
       modelUsed: null,
       debug,

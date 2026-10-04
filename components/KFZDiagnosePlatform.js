@@ -55,6 +55,20 @@ function VinInfo({ decoded, styles: s }) {
   );
 }
 
+// Hinweis, wenn statt einer echten KI-Auswertung ein fest hinterlegtes Beispiel angezeigt wird
+function DemoNotice({ info, styles: s }) {
+  if (!info?.demo) return null;
+  return (
+    <div className={`${s.urgencySection} ${s.urgencyMedium}`} role="alert">
+      <strong>⚠️ Beispielanalyse – keine echte KI-Auswertung.</strong>{' '}
+      {info.demoReason === 'no_api_key'
+        ? 'Es ist kein KI-Zugang (CLAUDE_API_KEY) eingerichtet.'
+        : `Die KI-Analyse ist fehlgeschlagen${info.error ? ` (${info.error})` : ''}. Bitte erneut versuchen.`}{' '}
+      Dieses Ergebnis nicht für Reparaturentscheidungen verwenden.
+    </div>
+  );
+}
+
 const KFZDiagnosePlatform = () => {
   // Tab Management
   const [activeTab, setActiveTab] = useState('diagnose');
@@ -204,7 +218,7 @@ const KFZDiagnosePlatform = () => {
 
       const data = await response.json();
       setResults(data.analysis);
-      saveCase({
+      if (!data.demo) saveCase({
         type: 'diagnose',
         vehicle: [carDetails.make, carDetails.model, carDetails.year].filter(Boolean).join(' '),
         vin: vin || '',
@@ -217,7 +231,9 @@ const KFZDiagnosePlatform = () => {
         debug: data.debug,
         error: data.error,
         timestamp: data.timestamp,
-        modelUsed: data.modelUsed
+        modelUsed: data.modelUsed,
+        demo: Boolean(data.demo),
+        demoReason: data.demoReason
       });
 
     } catch (err) {
@@ -268,7 +284,7 @@ const KFZDiagnosePlatform = () => {
 
       const data = await response.json();
       setObdResults(data.analysis);
-      saveCase({
+      if (!data.demo) saveCase({
         type: 'obd2',
         code: obdCode.toUpperCase(),
         vehicle: obdVinDecoded?.isValid
@@ -284,7 +300,9 @@ const KFZDiagnosePlatform = () => {
         debug: data.debug,
         error: data.error,
         timestamp: data.timestamp,
-        modelUsed: data.modelUsed
+        modelUsed: data.modelUsed,
+        demo: Boolean(data.demo),
+        demoReason: data.demoReason
       });
 
     } catch (err) {
@@ -368,9 +386,10 @@ const KFZDiagnosePlatform = () => {
         <div className={styles.resultsHeader}>
           <h2 className={styles.cardTitle}>✅ Diagnose-Ergebnis</h2>
           <span className={`${styles.aiModelBadge} ${styles.claudeBadge}`}>
-            🤖 Claude
+            {debugInfo?.demo ? '📋 Beispiel' : '🤖 Claude'}
           </span>
         </div>
+        <DemoNotice info={debugInfo} styles={styles} />
         
         <div className={styles.diagnosisSection}>
           <p>{results.diagnosis}</p>
@@ -456,6 +475,7 @@ const KFZDiagnosePlatform = () => {
     return (
       <div className={styles.resultsCard}>
         <h3 className={styles.cardTitle}>🔧 OBD2-Diagnose Ergebnis</h3>
+        <DemoNotice info={debugInfo} styles={styles} />
         
         <div className={styles.diagnosisSection}>
           <div className={styles.codeInfo}>

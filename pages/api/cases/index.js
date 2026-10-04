@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const input = Array.isArray(req.body?.cases) ? req.body.cases.slice(0, LIST_LIMIT) : [req.body];
       const author = session.user ? session.user.display_name || session.user.username : '';
-      const rows = input.map(toRow).filter(Boolean).map((row) => ({ ...row, created_by: author }));
+      const rows = input.map(toRow).filter(Boolean).map((row) => (author ? { ...row, created_by: author } : row));
       if (!rows.length) return res.status(400).json({ message: 'Ungültiger Fall.' });
       const saved = await db('cases', { method: 'POST', body: rows, prefer: 'return=representation' });
       return res.status(201).json({ cases: saved.map(fromRow) });

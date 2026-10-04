@@ -10,7 +10,7 @@ const tooManyAttempts = createLimiter(60 * 1000, 5);
 // Ist APP_PASSWORD gesetzt, dient es als Einrichtungscode (in Produktion zwingend).
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
-  if (authMode() !== 'users') return res.status(400).json({ message: 'Benutzerverwaltung benötigt die Datenbank.' });
+  if ((await authMode()) !== 'users') return res.status(400).json({ message: 'Benutzerverwaltung benötigt die Datenbank.' });
   if (tooManyAttempts(clientIp(req))) return res.status(429).json({ message: 'Zu viele Versuche. Bitte kurz warten.' });
 
   try {

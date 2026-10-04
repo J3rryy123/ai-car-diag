@@ -12,8 +12,27 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const USERNAME_PATTERN = /^[a-z0-9._-]{3,32}$/;
 export const MIN_PASSWORD_LENGTH = 8;
 
-export const authMode = () => (dbConfigured() ? 'users' : process.env.APP_PASSWORD ? 'legacy' : 'open');
-export const authRequired = () => authMode() !== 'open';
+// Solange die Tabelle app_users fehlt (Schema noch nicht eingespielt), bleibt das gemeinsame Passwort aktiv,
+// damit sich bestehende Installationen nicht aussperren.
+const MISSING_TABLE_CODES = ['PGRST205', '42P01'];
+const RECHECK_MS = 30 * 1000;
+let usersTable = { ok: false, missingAt: 0 };
+
+export async function authMode() {
+  if (!dbConfigured()) return process.env.APP_PASSWORD ? 'legacy' : 'open';
+  if (usersTable.ok) return 'users';
+  const fallback = process.env.APP_PASSWORD ? 'legacy' : 'users';
+  if (Date.now() - usersTable.missingAt < RECHECK_MS) return fallback;
+  try {
+    await db('app_users?select=id&limit=1');
+    usersTable = { ok: true, missingAt: 0 };
+  } catch (error) {
+    if (!MISSING_TABLE_CODES.includes(error.code)) return 'users'; // andere Fehler werden von den Routen gemeldet
+    usersTable = { ok: false, missingAt: Date.now() };
+    return fallback;
+  }
+  return 'users';
+}
 
 const secret = () =>
   process.env.SESSION_SECRET ||
@@ -104,7 +123,7 @@ export const clearCookie = () => `${COOKIE_NAME}=; ${cookieAttributes()}; Max-Ag
 
 /** Liefert { mode, authenticated, user } – user ist nur im Modus 'users' gesetzt. */
 export async function getSession(req) {
-  const mode = authMode();
+  const mode = await authMode();
   if (mode === 'open') return { mode, authenticated: true, user: null };
 
   const cookie = (req.headers.cookie || '').split(';').map((c) => c.trim()).find((c) => c.startsWith(`${COOKIE_NAME}=`));

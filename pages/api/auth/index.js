@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const mode = authMode();
+      const mode = await authMode();
       if (mode === 'open') return res.status(200).json({ ok: true });
       if (tooManyAttempts(clientIp(req))) return res.status(429).json({ message: 'Zu viele Versuche. Bitte kurz warten.' });
 

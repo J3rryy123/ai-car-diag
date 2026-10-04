@@ -24,9 +24,13 @@ const AuthGate = ({ children }) => {
 
   const loadState = () =>
     fetch('/api/auth')
-      .then((r) => r.json())
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.message || `Serverfehler (HTTP ${r.status})`);
+        return data;
+      })
       .then((data) => setState({ checked: true, ...data }))
-      .catch(() => setState({ checked: true, mode: 'open', authenticated: true }));
+      .catch((err) => setState({ checked: true, loadError: err.message }));
 
   useEffect(() => {
     loadState();
@@ -57,6 +61,20 @@ const AuthGate = ({ children }) => {
   };
 
   if (!state.checked) return null;
+
+  if (state.loadError) {
+    return (
+      <div className={styles.container}>
+        <main className={styles.main} style={{ maxWidth: '28rem', margin: '4rem auto' }}>
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>⚠️ Anmeldung nicht möglich</h2>
+            <div className={styles.error}>{state.loadError}</div>
+            <button className={styles.button} style={{ marginTop: '1rem' }} onClick={loadState}>Erneut versuchen</button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (!state.authenticated) {
     const setup = state.setupRequired;

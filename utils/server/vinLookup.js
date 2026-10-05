@@ -53,7 +53,15 @@ export function mapVpicResult(row) {
   };
   const hasEngine = Object.values(engine).some((v) => v !== null);
 
+  // vPIC liefert Hersteller in Großbuchstaben ("BMW", "VOLKSWAGEN") → in normale Schreibweise bringen
+  const KEEP_UPPER = new Set(['BMW', 'MINI', 'KIA', 'RAM', 'GMC', 'MG', 'BYD', 'DS']);
+  const makeRaw = text(row.Make);
+  const make = makeRaw && !KEEP_UPPER.has(makeRaw.toUpperCase())
+    ? makeRaw.toLowerCase().replace(/(^|[\s-])\p{L}/gu, (m) => m.toUpperCase())
+    : makeRaw?.toUpperCase() ?? null;
+
   const result = {
+    make,
     model: model ? { series: trim ? `${model} ${trim}` : model } : null,
     engine: hasEngine ? engine : null,
     modelYear: Number.parseInt(row.ModelYear, 10) || null,
@@ -63,7 +71,7 @@ export function mapVpicResult(row) {
     plantCity: text(row.PlantCity),
     source: 'NHTSA vPIC'
   };
-  return result.model || result.engine || result.bodyClass ? result : null;
+  return result.model || result.engine || result.bodyClass || result.make ? result : null;
 }
 
 // Liefert { found, data } oder wirft bei Netzwerk-/Serverfehlern.

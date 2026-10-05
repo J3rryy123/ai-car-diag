@@ -46,10 +46,10 @@ describe('decodeVIN', () => {
     expect(invalid.error).toMatch(/ungültige Zeichen/);
   });
 
-  it('meldet unbekannte Herstellercodes', () => {
-    const result = VIN_DECODER.decodeVIN('ZZZZZZZZZZZZZZZZZ');
-    expect(result.isValid).toBe(false);
-    expect(result.error).toMatch(/Herstellercode/);
+  it('akzeptiert unbekannte Herstellercodes als gültige VIN, ohne einen Hersteller zu erfinden', () => {
+    const result = VIN_DECODER.decodeVIN('XXXZZZ1KZ6W612345');
+    expect(result.isValid).toBe(true);
+    expect(result.manufacturer).toEqual({ name: null, country: null, wmi: 'XXX', matchedBy: null });
   });
 
   it('dekodiert Hersteller, Land und Baujahr einer US-VIN sicher', () => {
@@ -137,5 +137,86 @@ describe('mergeRemote', () => {
     expect(VIN_DECODER.mergeRemote(base, null)).toBe(base);
     const invalid = { isValid: false, error: 'x' };
     expect(VIN_DECODER.mergeRemote(invalid, { model: { series: 'X' } })).toBe(invalid);
+  });
+});
+
+describe('Herstellertabelle', () => {
+  const table = VIN_DECODER.manufacturers;
+
+  it('enthält nur gültige Herstellercodes (3 Stellen, keine I/O/Q) mit Hersteller und Land', () => {
+    for (const [wmi, entry] of Object.entries(table)) {
+      expect(wmi, wmi).toMatch(/^[A-HJ-NPR-Z0-9]{3}$/);
+      expect(entry.make, wmi).toBeTruthy();
+      expect(entry.country, wmi).toBeTruthy();
+    }
+  });
+
+  it('ordnet bekannte Herstellercodes richtig zu', () => {
+    const expected = {
+      WBA: 'BMW', WBS: 'BMW', WBY: 'BMW', WBX: 'BMW', WB1: 'BMW', '4US': 'BMW', '5UX': 'BMW', '5YM': 'BMW', LBV: 'BMW',
+      WMW: 'MINI', SCA: 'Rolls-Royce', WDB: 'Mercedes-Benz', W1K: 'Mercedes-Benz', LE4: 'Mercedes-Benz',
+      WAU: 'Audi', TRU: 'Audi', WVW: 'Volkswagen', LFV: 'Volkswagen', WP0: 'Porsche', W0L: 'Opel',
+      TMB: 'Škoda', VSS: 'SEAT', UU1: 'Dacia', ZHW: 'Lamborghini', ZLA: 'Lancia', SBM: 'McLaren',
+      LRW: 'Tesla', LTV: 'Toyota', VS6: 'Ford', JTH: 'Lexus', KMT: 'Genesis', LGX: 'BYD', L6T: 'Geely',
+    };
+    for (const [wmi, make] of Object.entries(expected)) {
+      expect(table[wmi]?.make, wmi).toBe(make);
+    }
+  });
+
+  it('kennt alle BMW-Codes aus der Praxis (Pkw, M, i, SUV, Motorrad, USA, China)', () => {
+    for (const wmi of ['WBA', 'WBS', 'WBY', 'WBX', 'WB1', '4US', '5UX', '5YM', 'LBV']) {
+      expect(table[wmi].make).toBe('BMW');
+    }
+  });
+});
+
+describe('Zuordnung nach Anfang des Herstellercodes', () => {
+  it('erkennt BMW auch bei nicht gelisteten Codes mit WB…', () => {
+    const result = VIN_DECODER.decodeVIN('WB3A5C5050LB12345');
+    expect(result.isValid).toBe(true);
+    expect(result.manufacturer).toMatchObject({ name: 'BMW', country: 'Deutschland', matchedBy: 'prefix' });
+  });
+
+  it('bevorzugt den genauen Code vor dem Anfang', () => {
+    expect(VIN_DECODER.decodeVIN('WBAVA31010NL12345').manufacturer.matchedBy).toBe('wmi');
+  });
+
+  it('nutzt Anfänge nur, wo sie eindeutig sind', () => {
+    // WM… gehört mehreren Herstellern (MINI, smart, MAN) → ohne genauen Code bleibt der Hersteller offen
+    expect(VIN_DECODER.makePrefixes.WM).toBeUndefined();
+    expect(VIN_DECODER.decodeVIN('WM5ZZZ1KZ6W612345').manufacturer.name).toBeNull();
+  });
+});
+
+describe('BMW-Beispiele', () => {
+  it.each([
+    ['WBA8E9C50GK123456', 2016],
+    ['WBS8M9C50J5K12345', 2018],
+    ['WBY1Z2C50FV123456', 2015],
+    ['WBXHT3C30J5K12345', 2018],
+  ])('%s wird als BMW erkannt, Baujahr %i', (vin, year) => {
+    const result = VIN_DECODER.decodeVIN(vin);
+    expect(result.isValid).toBe(true);
+    expect(result.manufacturer.name).toBe('BMW');
+    expect(result.year.modelYear).toBe(year);
+  });
+
+  it('BMW aus den USA (5UX) verlangt eine korrekte Prüfziffer', () => {
+    expect(VIN_DECODER.decodeVIN('5UXKR0C58G0S12345').isValid).toBe(false);
+  });
+});
+
+describe('Hersteller aus der Fahrzeugdatenbank', () => {
+  it('ergänzt einen lokal unbekannten Hersteller', () => {
+    const local = VIN_DECODER.decodeVIN('XXXZZZ1KZ6W612345');
+    const merged = VIN_DECODER.mergeRemote(local, { make: 'Lada', model: null, engine: null });
+    expect(merged.manufacturer).toMatchObject({ name: 'Lada', matchedBy: 'database' });
+  });
+
+  it('überschreibt einen lokal bekannten Hersteller nicht', () => {
+    const local = VIN_DECODER.decodeVIN('WVWZZZ1KZ6W612345');
+    const merged = VIN_DECODER.mergeRemote(local, { make: 'Fremdmarke' });
+    expect(merged.manufacturer.name).toBe('Volkswagen');
   });
 });

@@ -24,8 +24,22 @@ describe('mapVpicResult', () => {
     expect(mapVpicResult({ Model: 'i3', FuelTypePrimary: 'Electric', ElectrificationLevel: 'BEV (Battery Electric Vehicle)' }).engine.fuelType).toBe('Elektro');
   });
 
+  it('bringt den Hersteller in normale Schreibweise', () => {
+    const make = (Make) => mapVpicResult({ Make }).make;
+    expect(make('VOLKSWAGEN')).toBe('Volkswagen');
+    expect(make('MERCEDES-BENZ')).toBe('Mercedes-Benz');
+    expect(make('LAND ROVER')).toBe('Land Rover');
+    expect(make('BMW')).toBe('BMW');
+    expect(make('MINI')).toBe('MINI');
+  });
+
+  it('liefert bei nur bekanntem Hersteller kein Modell und keinen Motor', () => {
+    const result = mapVpicResult({ Make: 'BMW', Model: '', ErrorCode: '7' });
+    expect(result).toMatchObject({ make: 'BMW', model: null, engine: null });
+  });
+
   it('liefert null, wenn die Datenbank nichts Brauchbares kennt', () => {
-    expect(mapVpicResult({ Make: 'BMW', Model: '', ErrorCode: '7' })).toBeNull();
+    expect(mapVpicResult({ Model: '', ErrorCode: '7' })).toBeNull();
     expect(mapVpicResult({ Model: 'Not Applicable' })).toBeNull();
     expect(mapVpicResult(null)).toBeNull();
   });

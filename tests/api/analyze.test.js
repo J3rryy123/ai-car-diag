@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { call, uniqueIp } from '../helpers/http';
 
-const mocks = vi.hoisted(() => ({ requireAuth: vi.fn(), callClaude: vi.fn() }));
+const mocks = vi.hoisted(() => ({ requireAuth: vi.fn(), callClaude: vi.fn(), db: vi.fn() }));
 vi.mock('../../utils/server/auth', () => ({ requireAuth: mocks.requireAuth }));
 vi.mock('../../utils/server/claude', () => ({ callClaude: mocks.callClaude }));
+// Datenbankzugriff ersetzen (Verlauf, zentrale Anfragebegrenzung); dbConfigured/sendDbError bleiben echt
+vi.mock('../../utils/server/supabase', async (importOriginal) => ({ ...(await importOriginal()), db: mocks.db }));
 
 let handler;
 let userSeq = 0;
@@ -26,6 +28,7 @@ beforeEach(async () => {
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   mocks.requireAuth.mockReset().mockResolvedValue(user());
   mocks.callClaude.mockReset().mockResolvedValue(claudeAnswer());
+  mocks.db.mockReset().mockImplementation(async (path) => (path.startsWith('rpc/') ? 1 : []));
   handler ??= (await import('../../pages/api/analyze')).default;
 });
 
@@ -162,5 +165,81 @@ describe('Anfragebegrenzung', () => {
 
     mocks.requireAuth.mockResolvedValue(user('anderer-user'));
     expect((await call(handler, { body: diagnose() })).statusCode).toBe(200);
+  });
+});
+
+describe('Fahrzeughistorie im Prompt', () => {
+  const VIN = 'WVWZZZ1KZ6W612345';
+  const rows = [
+    { created_at: '2026-03-01T10:00:00Z', type: 'obd2', code: 'P0171', problem: '', note: 'Luftmassenmesser gereinigt', result: { diagnosis: 'System zu mager, Falschluft vermutet' } },
+    { created_at: '2026-01-15T08:00:00Z', type: 'diagnose', code: '', problem: 'Motor ruckelt', note: '', result: null },
+  ];
+  const historyCalls = () => mocks.db.mock.calls.filter(([path]) => path.startsWith('cases'));
+
+  beforeEach(() => {
+    vi.stubEnv('SUPABASE_URL', 'https://example.supabase.co');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'sb_secret_test');
+    mocks.db.mockImplementation(async (path) => (path.startsWith('rpc/') ? 1 : rows));
+  });
+
+  it('nimmt frühere Fälle desselben Fahrzeugs in den Prompt auf', async () => {
+    await call(handler, { body: diagnose({ vin: VIN }), ip: uniqueIp() });
+    expect(historyCalls()).toHaveLength(1);
+    expect(historyCalls()[0][0]).toContain(`vin=eq.${VIN}`);
+    expect(lastPrompt()).toContain("Earlier cases for this vehicle");
+    expect(lastPrompt()).toContain('2026-03-01: P0171');
+    expect(lastPrompt()).toContain('Falschluft vermutet');
+    expect(lastPrompt()).toContain('workshop note: Luftmassenmesser gereinigt');
+    expect(lastPrompt()).toContain('2026-01-15: Motor ruckelt');
+  });
+
+  it('gilt auch für OBD2-Analysen', async () => {
+    const body = { type: 'obd2', obdCode: 'P0171', obdVin: VIN, codeInfo: { description: 'zu mager', category: 'Kraftstoff', severity: 'Mittel' } };
+    await call(handler, { body, ip: uniqueIp() });
+    expect(lastPrompt()).toContain('Luftmassenmesser gereinigt');
+  });
+
+  it('Mitarbeiter sehen nur eigene Fälle, Administratoren alle', async () => {
+    mocks.requireAuth.mockResolvedValue({ mode: 'users', authenticated: true, user: { id: 'worker-1', role: 'user' } });
+    await call(handler, { body: diagnose({ vin: VIN }), ip: uniqueIp() });
+    expect(historyCalls()[0][0]).toContain('&created_by_id=eq.worker-1');
+
+    mocks.db.mockClear();
+    mocks.requireAuth.mockResolvedValue({ mode: 'users', authenticated: true, user: { id: 'boss', role: 'admin' } });
+    await call(handler, { body: diagnose({ vin: VIN }), ip: uniqueIp() });
+    expect(historyCalls()[0][0]).not.toContain('created_by_id');
+  });
+
+  it('fragt ohne VIN oder ohne Datenbank nicht nach', async () => {
+    await call(handler, { body: diagnose(), ip: uniqueIp() });
+    expect(historyCalls()).toHaveLength(0);
+
+    vi.stubEnv('SUPABASE_URL', '');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');
+    mocks.db.mockClear();
+    await call(handler, { body: diagnose({ vin: VIN }), ip: uniqueIp() });
+    expect(mocks.db).not.toHaveBeenCalled();
+    expect(lastPrompt()).not.toContain('Earlier cases');
+  });
+
+  it('die Analyse läuft auch bei Datenbankfehlern weiter', async () => {
+    mocks.db.mockImplementation(async (path) => {
+      if (path.startsWith('rpc/')) return 1;
+      throw new Error('unreachable');
+    });
+    const res = await call(handler, { body: diagnose({ vin: VIN }), ip: uniqueIp() });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.mode).toBe('claude');
+    expect(lastPrompt()).not.toContain('Earlier cases');
+  });
+
+  it('kürzt und bereinigt gespeicherte Texte', async () => {
+    mocks.db.mockImplementation(async (path) =>
+      path.startsWith('rpc/') ? 1 : [{ created_at: '2026-03-01T00:00:00Z', code: 'P0300', note: `${'x'.repeat(1000)}\u0000\nneue Zeile`, result: null }]
+    );
+    await call(handler, { body: diagnose({ vin: VIN }), ip: uniqueIp() });
+    const line = lastPrompt().split('\n').find((l) => l.includes('2026-03-01'));
+    expect(line.length).toBeLessThan(400);
+    expect(lastPrompt()).not.toContain('\u0000');
   });
 });

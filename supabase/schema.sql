@@ -14,6 +14,9 @@ create table if not exists public.cases (
 
 create index if not exists cases_created_at_idx on public.cases (created_at desc);
 
+-- Fahrzeughistorie: Fälle nach VIN finden
+create index if not exists cases_vin_idx on public.cases (vin);
+
 -- Zugriff nur über den Service-Key der App (Server). Öffentlicher Zugriff bleibt gesperrt.
 alter table public.cases enable row level security;
 

@@ -7,6 +7,7 @@ import RegistrationScan from './RegistrationScan';
 import GuidedDiagnosis from './GuidedDiagnosis';
 import MultiCodeAnalysis from './MultiCodeAnalysis';
 import PrintReport from './PrintReport';
+import VehicleHistory from './VehicleHistory';
 import { addCase } from '../utils/caseHistory';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
@@ -760,6 +761,7 @@ const KFZDiagnosePlatform = () => {
                   />
                   
                   <VinInfo decoded={vinDecoded} styles={styles} />
+                  <VehicleHistory vin={vinDecoded?.isValid ? vinDecoded.vin : ''} refreshKey={historyVersion} onOpen={openCase} styles={styles} />
                 </div>
 
                 {/* Car Details */}
@@ -905,6 +907,7 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
                   />
                   
                   <VinInfo decoded={obdVinDecoded} styles={styles} />
+                  <VehicleHistory vin={obdVinDecoded?.isValid ? obdVinDecoded.vin : ''} refreshKey={historyVersion} onOpen={openCase} styles={styles} />
                 </div>
 
                 {/* OBD2-Code ... */}

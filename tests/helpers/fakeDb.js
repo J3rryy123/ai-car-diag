@@ -8,7 +8,8 @@ export function createFakeDb({ users = [], cases = [] } = {}) {
   const filterBy = (rows, path) => {
     const id = /[?&]id=eq\.([^&]+)/.exec(path)?.[1];
     const owner = /[&?]created_by_id=eq\.([^&]+)/.exec(path)?.[1];
-    return rows.filter((r) => (!id || r.id === id) && (!owner || r.created_by_id === owner));
+    const vin = /[&?]vin=eq\.([^&]+)/.exec(path)?.[1];
+    return rows.filter((r) => (!id || r.id === id) && (!owner || r.created_by_id === owner) && (!vin || r.vin === vin));
   };
 
   const db = async (path, { method = 'GET', body } = {}) => {
@@ -47,7 +48,13 @@ export function createFakeDb({ users = [], cases = [] } = {}) {
         state.cases.push(...created);
         return created;
       }
-      const matches = filterBy(state.cases, path);
+      let matches = filterBy(state.cases, path);
+      if (method === 'GET') {
+        // neueste zuerst und Begrenzung, wie bei PostgREST (order=created_at.desc&limit=n)
+        matches = [...matches].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+        const limit = Number(/[&?]limit=(\d+)/.exec(path)?.[1]);
+        if (limit) matches = matches.slice(0, limit);
+      }
       if (method === 'PATCH') {
         matches.forEach((c) => Object.assign(c, body));
         return matches;

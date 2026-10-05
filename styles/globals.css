@@ -81,3 +81,129 @@ input:focus, textarea:focus, button:focus {
     display: none;
   }
 }
+
+/* Druckansicht der Diagnose (Als PDF speichern / Drucken) */
+.print-report {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
+
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    overflow: visible !important;
+  }
+
+  /* Die App entfällt, nur der Bericht (direkt unter <body>) wird gedruckt */
+  #__next {
+    display: none !important;
+  }
+
+  .print-report {
+    display: block;
+    color: #111;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+
+  .print-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #111;
+    margin-bottom: 12px;
+  }
+
+  .print-header img {
+    border-radius: 8px;
+  }
+
+  .print-header h1 {
+    font-size: 18pt;
+  }
+
+  .print-header p,
+  .print-muted {
+    color: #555;
+    font-size: 10pt;
+  }
+
+  .print-facts {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px 16px;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    border: 1px solid #bbb;
+    border-radius: 6px;
+  }
+
+  .print-facts dt {
+    font-size: 9pt;
+    color: #555;
+  }
+
+  .print-facts dd {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .print-block {
+    margin-bottom: 12px;
+    break-inside: avoid;
+  }
+
+  .print-block h2 {
+    font-size: 12pt;
+    margin-bottom: 4px;
+  }
+
+  .print-header h1,
+  .print-block h2 {
+    font-weight: 700;
+  }
+
+  .print-block ul,
+  .print-block ol {
+    margin-left: 18px;
+  }
+
+  .print-block ul {
+    list-style: disc;
+  }
+
+  .print-block ol {
+    list-style: decimal;
+  }
+
+  .print-report table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .print-report th,
+  .print-report td {
+    border: 1px solid #bbb;
+    padding: 4px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .print-report th {
+    background: #eee;
+  }
+
+  .print-footer {
+    margin-top: 16px;
+    padding-top: 8px;
+    border-top: 1px solid #bbb;
+    font-size: 9pt;
+    color: #555;
+  }
+}

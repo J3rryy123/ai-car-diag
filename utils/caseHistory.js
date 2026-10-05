@@ -51,6 +51,16 @@ export async function loadCases() {
   return { cases: data.cases, storage: 'database', scope: data.scope };
 }
 
+const normalizeVin = (value) => String(value || '').replace(/[\s-]/g, '').toUpperCase();
+
+/** Fälle eines Fahrzeugs (nach VIN), neueste zuerst. Ohne Datenbank aus dem lokalen Speicher. */
+export async function loadVehicleCases(vin) {
+  const wanted = normalizeVin(vin);
+  const { fallback, data } = await request(`/api/cases?vin=${encodeURIComponent(wanted)}`);
+  if (fallback) return loadLocalCases().filter((c) => normalizeVin(c.vin) === wanted);
+  return data.cases;
+}
+
 export async function addCase(entry) {
   const { fallback, data } = await request('/api/cases', { method: 'POST', body: entry });
   if (!fallback) return data.cases[0];

@@ -128,3 +128,46 @@ describe('Fälle ändern und löschen', () => {
     expect(fake.current.state.cases.find((c) => c.id === annasCase.id)).toMatchObject({ note: 'ok', type: 'diagnose', created_by_id: ids.anna });
   });
 });
+
+describe('Fahrzeughistorie (?vin=)', () => {
+  const VIN = 'WVWZZZ1KZ6W612345';
+
+  beforeEach(() => {
+    fake.current.state.cases.push(
+      { id: uuid(), type: 'diagnose', vin: VIN, vehicle: 'VW Golf', created_by_id: ids.anna, created_at: '2026-02-01T10:00:00Z', data: {} },
+      { id: uuid(), type: 'obd2', vin: VIN, code: 'P0171', vehicle: 'VW Golf', created_by_id: ids.ben, created_at: '2026-03-01T10:00:00Z', data: {} },
+      { id: uuid(), type: 'obd2', vin: 'WBAVA31010NL12345', vehicle: 'BMW', created_by_id: ids.anna, created_at: '2026-04-01T10:00:00Z', data: {} },
+    );
+  });
+
+  it('Administratoren sehen alle Fälle des Fahrzeugs, neueste zuerst', async () => {
+    const res = await call(casesApi, { method: 'GET', headers: await login('chef'), query: { vin: VIN } });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.scope).toBe('all');
+    expect(res.body.cases.map((c) => c.code || c.type)).toEqual(['P0171', 'diagnose']);
+  });
+
+  it('Mitarbeiter sehen auch hier nur eigene Fälle', async () => {
+    const res = await call(casesApi, { method: 'GET', headers: await login('anna'), query: { vin: VIN } });
+    expect(res.body.scope).toBe('own');
+    expect(res.body.cases).toHaveLength(1);
+    expect(res.body.cases[0].createdAt).toBe('2026-02-01T10:00:00Z');
+  });
+
+  it('bereinigt die VIN und lehnt ungültige Werte ab, bevor die Datenbank gefragt wird', async () => {
+    const headers = await login('chef');
+    const ok = await call(casesApi, { method: 'GET', headers, query: { vin: ' wvwzzz-1kz6w612345 ' } });
+    expect(ok.body.cases).toHaveLength(2);
+
+    const before = fake.current.state.calls.length;
+    for (const vin of ['', 'ABC', `${VIN}&select=password_hash`, "WVWZZZ1KZ6W61234'; drop", 'WVWZZZ1KZ6W6I2345']) {
+      expect((await call(casesApi, { method: 'GET', headers, query: { vin } })).statusCode).toBe(400);
+    }
+    expect(fake.current.state.calls.slice(before).every((c) => !c.path.startsWith('cases'))).toBe(true);
+  });
+
+  it('speichert die VIN beim Anlegen einheitlich', async () => {
+    await call(casesApi, { headers: await login('anna'), body: { type: 'diagnose', vin: ' wvw-zzz1kz6w612345 ' } });
+    expect(fake.current.state.cases.at(-1).vin).toBe(VIN);
+  });
+});

@@ -1,8 +1,9 @@
 import { requireAuth } from '../../../utils/server/auth';
 import { db, dbConfigured, sendDbError } from '../../../utils/server/supabase';
-import { toRow, fromRow, isScoped, ownOnly } from '../../../utils/server/caseMapping';
+import { toRow, fromRow, isScoped, ownOnly, normalizeVin, VIN_PATTERN } from '../../../utils/server/caseMapping';
 
 const LIST_LIMIT = 200;
+const VEHICLE_LIMIT = 20;
 
 export default async function handler(req, res) {
   if (!dbConfigured()) {
@@ -13,6 +14,13 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
+      // Fälle eines Fahrzeugs (Fahrzeughistorie), weiterhin nur im Rahmen der eigenen Sichtbarkeit
+      if (req.query?.vin !== undefined) {
+        const vin = normalizeVin(String(req.query.vin));
+        if (!VIN_PATTERN.test(vin)) return res.status(400).json({ message: 'Ungültige VIN.' });
+        const rows = await db(`cases?select=*&vin=eq.${vin}&order=created_at.desc&limit=${VEHICLE_LIMIT}${ownOnly(session)}`);
+        return res.status(200).json({ cases: rows.map(fromRow), scope: isScoped(session) ? 'own' : 'all' });
+      }
       const rows = await db(`cases?select=*&order=created_at.desc&limit=${LIST_LIMIT}${ownOnly(session)}`);
       return res.status(200).json({ cases: rows.map(fromRow), scope: isScoped(session) ? 'own' : 'all' });
     }

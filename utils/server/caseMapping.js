@@ -9,6 +9,10 @@ export const ownOnly = (session) => (isScoped(session) ? `&created_by_id=eq.${se
 
 export const clip = (value, max) => (typeof value === 'string' ? value.slice(0, max) : '');
 
+// VIN einheitlich speichern (ohne Leerzeichen/Bindestriche, Großbuchstaben), damit sich Fälle eines Fahrzeugs finden lassen
+export const normalizeVin = (value) => (typeof value === 'string' ? value.replace(/[\s-]/g, '').toUpperCase() : '');
+export const VIN_PATTERN = /^[A-HJ-NPR-Z0-9]{17}$/;
+
 export function toRow(c) {
   if (!c || !TYPES.includes(c.type)) return null;
   const { type, customer, note, vehicle, vin, code, problem, id, createdAt, ...data } = c;
@@ -18,7 +22,7 @@ export function toRow(c) {
     customer: clip(customer, 200),
     note: clip(note, 5000),
     vehicle: clip(vehicle, 200),
-    vin: clip(vin, 17),
+    vin: clip(normalizeVin(vin), 17),
     code: clip(code, 200),
     problem: clip(problem, 2000),
     data

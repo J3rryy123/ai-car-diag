@@ -2,16 +2,16 @@ import {
   authMode, countUsers, hashPassword, passwordMatches, passwordProblem, sessionCookie, publicUser, USERNAME_PATTERN
 } from '../../../utils/server/auth';
 import { db, sendDbError } from '../../../utils/server/supabase';
-import { createLimiter, clientIp } from '../../../utils/server/rateLimit';
+import { createRateLimiter, clientIp } from '../../../utils/server/rateLimit';
 
-const tooManyAttempts = createLimiter(60 * 1000, 5);
+const tooManyAttempts = createRateLimiter('setup', 60 * 1000, 5);
 
 // Legt den ersten Administrator an, solange noch kein Benutzer existiert.
 // Ist APP_PASSWORD gesetzt, dient es als Einrichtungscode (in Produktion zwingend).
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
   if ((await authMode()) !== 'users') return res.status(400).json({ message: 'Benutzerverwaltung benötigt die Datenbank.' });
-  if (tooManyAttempts(clientIp(req))) return res.status(429).json({ message: 'Zu viele Versuche. Bitte kurz warten.' });
+  if (await tooManyAttempts(clientIp(req))) return res.status(429).json({ message: 'Zu viele Versuche. Bitte kurz warten.' });
 
   try {
     if ((await countUsers()) > 0) return res.status(409).json({ message: 'Es existiert bereits ein Benutzer.' });

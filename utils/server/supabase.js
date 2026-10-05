@@ -12,7 +12,7 @@ export class DbError extends Error {
 // Akzeptiert auch URLs mit Schrägstrich am Ende oder mit angehängtem /rest/v1
 const baseUrl = () => process.env.SUPABASE_URL.trim().replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
 
-export async function db(path, { method = 'GET', body, prefer } = {}) {
+export async function db(path, { method = 'GET', body, prefer, timeoutMs } = {}) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY.trim();
   let response;
   try {
@@ -25,7 +25,8 @@ export async function db(path, { method = 'GET', body, prefer } = {}) {
         'Content-Type': 'application/json',
         ...(prefer ? { Prefer: prefer } : {})
       },
-      body: body === undefined ? undefined : JSON.stringify(body)
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined
     });
   } catch (error) {
     console.error('Supabase nicht erreichbar:', error.cause?.code || error.message);

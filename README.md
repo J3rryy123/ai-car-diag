@@ -41,6 +41,10 @@ Sobald die Datenbank konfiguriert ist, melden sich Personen mit **Benutzername +
 
 Rollen: *Administrator* (inkl. Benutzerverwaltung) und *Mitarbeiter*. Mitarbeiter sehen im Diagnoseverlauf nur ihre eigenen Fälle, Administratoren sehen alle (mit Angabe, wer den Fall angelegt hat). Fälle aus der Zeit vor der Benutzerverwaltung sind nur für Administratoren sichtbar. Ohne Datenbank bleibt es beim gemeinsamen Passwort.
 
+## Begrenzung von Anfragen
+
+KI-Analyse, Fahrzeugschein-Scan, VIN-Abfrage und Anmeldung sind pro Minute begrenzt (je Benutzer bzw. IP), um die API-Schlüssel vor Missbrauch zu schützen. Mit Datenbank zählt die App **zentral** über die Funktion `rate_limit_hit` (Tabelle `rate_limits`), sodass das Limit auch bei mehreren Vercel-Instanzen gilt. Dafür `supabase/schema.sql` (erneut) ausführen. Ist die Funktion noch nicht eingespielt oder die Datenbank nicht erreichbar, zählt die App im Arbeitsspeicher der jeweiligen Instanz weiter (Hinweis „Zentrale Begrenzung nicht verfügbar“ in den Vercel-Logs).
+
 Ohne Datenbank speichert die App den Verlauf lokal im Browser. Sobald die Datenbank konfiguriert ist, lassen sich lokale Fälle im Verlauf-Tab mit einem Klick übernehmen.
 
 ## Prüfen

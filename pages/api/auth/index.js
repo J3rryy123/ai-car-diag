@@ -2,9 +2,9 @@ import {
   authMode, getSession, passwordMatches, sessionCookie, clearCookie, findUserByName, verifyPassword, publicUser, countUsers
 } from '../../../utils/server/auth';
 import { sendDbError } from '../../../utils/server/supabase';
-import { createLimiter, clientIp } from '../../../utils/server/rateLimit';
+import { createRateLimiter, clientIp } from '../../../utils/server/rateLimit';
 
-const tooManyAttempts = createLimiter(60 * 1000, 5);
+const tooManyAttempts = createRateLimiter('login', 60 * 1000, 5);
 
 export default async function handler(req, res) {
   try {
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const mode = await authMode();
       if (mode === 'open') return res.status(200).json({ ok: true });
-      if (tooManyAttempts(clientIp(req))) return res.status(429).json({ message: 'Zu viele Versuche. Bitte kurz warten.' });
+      if (await tooManyAttempts(clientIp(req))) return res.status(429).json({ message: 'Zu viele Versuche. Bitte kurz warten.' });
 
       if (mode === 'legacy') {
         if (!passwordMatches(req.body?.password ?? '')) return res.status(401).json({ message: 'Passwort falsch.' });

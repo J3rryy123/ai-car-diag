@@ -1,5 +1,6 @@
 import { requireAuth } from '../../utils/server/auth';
 import { callClaude } from '../../utils/server/claude';
+import { clientIp, createRateLimiter } from '../../utils/server/rateLimit';
 
 // Claude kann länger brauchen als das Standard-Zeitlimit von Vercel
 export const config = { maxDuration: 60 };
@@ -11,23 +12,7 @@ const VIN_PATTERN = /^[A-HJ-NPR-Z0-9]{17}$/;
 
 const LANGUAGE_NOTE = 'Antworte vollständig auf Deutsch und übergib das Ergebnis über das bereitgestellte Tool.';
 
-// Simple in-memory rate limit (per server instance) to protect the API keys from abuse
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX = 20;
-const rateBuckets = new Map();
-
-function isRateLimited(ip) {
-  const now = Date.now();
-  const recent = (rateBuckets.get(ip) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  recent.push(now);
-  rateBuckets.set(ip, recent);
-  if (rateBuckets.size > 1000) {
-    for (const [key, times] of rateBuckets) {
-      if (times.every((t) => now - t >= RATE_LIMIT_WINDOW_MS)) rateBuckets.delete(key);
-    }
-  }
-  return recent.length > RATE_LIMIT_MAX;
-}
+const isRateLimited = createRateLimiter('analyze', 60 * 1000, 20);
 
 const clean = (value, max = MAX_FIELD_LENGTH) =>
   typeof value === 'string' ? value.replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, max) : '';
@@ -308,8 +293,7 @@ export default async function handler(req, res) {
   // Technische Details (Modell, Umgebung) nur für Administratoren bzw. ohne Anmeldeschutz (lokal)
   const debugAllowed = session.user?.role === 'admin' || session.mode === 'open';
 
-  const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
-  if (isRateLimited(ip)) {
+  if (await isRateLimited(session.user?.id || clientIp(req))) {
     return res.status(429).json({ message: 'Zu viele Anfragen. Bitte kurz warten.' });
   }
 

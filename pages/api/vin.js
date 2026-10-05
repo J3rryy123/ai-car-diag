@@ -1,17 +1,18 @@
 import { requireAuth } from '../../utils/server/auth';
-import { clientIp, createLimiter } from '../../utils/server/rateLimit';
+import { clientIp, createRateLimiter } from '../../utils/server/rateLimit';
 import { lookupVin } from '../../utils/server/vinLookup';
 import VIN_DECODER from '../../utils/vinDecoder';
 
-const isLimited = createLimiter(60 * 1000, 30);
+const isLimited = createRateLimiter('vin', 60 * 1000, 30);
 
 // Ergänzt die lokale VIN-Auswertung um Modell-/Motordaten aus einer externen Datenbank.
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
-  if (!(await requireAuth(req, res))) return;
-  if (isLimited(clientIp(req))) {
+  const session = await requireAuth(req, res);
+  if (!session) return;
+  if (await isLimited(session.user?.id || clientIp(req))) {
     return res.status(429).json({ message: 'Zu viele Anfragen. Bitte kurz warten.' });
   }
 

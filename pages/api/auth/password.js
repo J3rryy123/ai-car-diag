@@ -1,8 +1,8 @@
 import { requireAuth, verifyPassword, hashPassword, passwordProblem, sessionCookie } from '../../../utils/server/auth';
 import { db, sendDbError } from '../../../utils/server/supabase';
-import { createLimiter, clientIp } from '../../../utils/server/rateLimit';
+import { createRateLimiter, clientIp } from '../../../utils/server/rateLimit';
 
-const tooManyAttempts = createLimiter(60 * 1000, 5);
+const tooManyAttempts = createRateLimiter('password', 60 * 1000, 5);
 
 // Eigenes Passwort ändern. Bestehende Sitzungen anderer Geräte werden dadurch ungültig.
 export default async function handler(req, res) {
@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   const session = await requireAuth(req, res, { strict: true });
   if (!session) return;
   if (!session.user) return res.status(400).json({ message: 'Nur mit Benutzerkonto möglich.' });
-  if (tooManyAttempts(clientIp(req))) return res.status(429).json({ message: 'Zu viele Versuche. Bitte kurz warten.' });
+  if (await tooManyAttempts(clientIp(req))) return res.status(429).json({ message: 'Zu viele Versuche. Bitte kurz warten.' });
 
   const { currentPassword, newPassword } = req.body || {};
   const problem = passwordProblem(newPassword);

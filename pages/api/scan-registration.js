@@ -1,6 +1,6 @@
 import { requireAuth } from '../../utils/server/auth';
 import { callClaude } from '../../utils/server/claude';
-import { clientIp, createLimiter } from '../../utils/server/rateLimit';
+import { clientIp, createRateLimiter } from '../../utils/server/rateLimit';
 import { REGISTRATION_PROMPT, REGISTRATION_TOOL, normalizeRegistration } from '../../utils/server/registrationParse';
 
 // Fotos werden im Browser verkleinert; Vercel erlaubt höchstens 4,5 MB pro Anfrage
@@ -8,15 +8,16 @@ export const config = { api: { bodyParser: { sizeLimit: '4mb' } }, maxDuration: 
 
 const MAX_BASE64_CHARS = 4_000_000;
 const DATA_URL = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/;
-const isLimited = createLimiter(60 * 1000, 10);
+const isLimited = createRateLimiter('scan', 60 * 1000, 10);
 
 // Liest Fahrzeugdaten aus einem Foto des Fahrzeugscheins. Das Bild wird nicht gespeichert.
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
-  if (!(await requireAuth(req, res))) return;
-  if (isLimited(clientIp(req))) {
+  const session = await requireAuth(req, res);
+  if (!session) return;
+  if (await isLimited(session.user?.id || clientIp(req))) {
     return res.status(429).json({ message: 'Zu viele Anfragen. Bitte kurz warten.' });
   }
   if (!process.env.CLAUDE_API_KEY) {

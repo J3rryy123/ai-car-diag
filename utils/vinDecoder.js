@@ -1,163 +1,263 @@
 const VIN_DECODER = {
+  // Herstellercodes (WMI, Stellen 1–3). Nur Einträge, die sicher zugeordnet sind; Land = Land des Herstellercodes (Werk bzw. Hersteller)
   manufacturers: {
-    // BMW
-    'WBA': { make: 'BMW', country: 'Deutschland', type: 'PKW', plant: 'München/Dingolfing' },
-    'WBS': { make: 'BMW', country: 'Deutschland', type: 'M-Serie/Sport', plant: 'München' },
-    'WBY': { make: 'BMW', country: 'Deutschland', type: 'i-Serie/Elektro', plant: 'Leipzig' },
-    '4US': { make: 'BMW', country: 'USA', type: 'BMW USA', plant: 'Spartanburg' },
-    '5UX': { make: 'BMW', country: 'USA', type: 'SUV', plant: 'Spartanburg' },
-    
-    // Mercedes-Benz
-    'WDB': { make: 'Mercedes-Benz', country: 'Deutschland', type: 'PKW', plant: 'Sindelfingen/Bremen' },
-    'WDD': { make: 'Mercedes-Benz', country: 'Deutschland', type: 'PKW/Kompakt', plant: 'Rastatt/Kecskemét' },
-    'WDC': { make: 'Mercedes-Benz', country: 'Deutschland', type: 'Sprinter/Nutzfahrzeug', plant: 'Düsseldorf' },
-    'WDF': { make: 'Mercedes-Benz', country: 'Deutschland', type: 'Unimog/Spezial', plant: 'Wörth' },
-    '4JG': { make: 'Mercedes-Benz', country: 'USA', type: 'SUV', plant: 'Tuscaloosa' },
-    
-    // Audi
-    'WAU': { make: 'Audi', country: 'Deutschland', type: 'PKW', plant: 'Ingolstadt/Neckarsulm' },
-    'WA1': { make: 'Audi', country: 'Deutschland', type: 'A-Klasse/Kompakt', plant: 'Ingolstadt' },
-    'WAN': { make: 'Audi', country: 'Deutschland', type: 'e-tron/Elektro', plant: 'Brüssel' },
-    
-    // Volkswagen Group
-    'WVW': { make: 'Volkswagen', country: 'Deutschland', type: 'PKW', plant: 'Wolfsburg/Emden' },
-    'WV1': { make: 'Volkswagen', country: 'Deutschland', type: 'Nutzfahrzeug', plant: 'Hannover' },
-    'WV2': { make: 'Volkswagen', country: 'Deutschland', type: 'Bus/Transporter', plant: 'Hannover' },
-    '3VW': { make: 'Volkswagen', country: 'Mexiko', type: 'PKW', plant: 'Puebla' },
-    
-    // Porsche
-    'WP0': { make: 'Porsche', country: 'Deutschland', type: 'Sportwagen', plant: 'Stuttgart-Zuffenhausen' },
-    'WP1': { make: 'Porsche', country: 'Deutschland', type: 'SUV', plant: 'Leipzig' },
-    
-    // Existing other brands (preserved)
-    'VSS': { make: 'SEAT', country: 'Spanien', type: 'PKW', plant: 'Martorell' },
-    'TMB': { make: 'Škoda', country: 'Tschechien', type: 'PKW', plant: 'Mladá Boleslav' },
-    'TRU': { make: 'Audi', country: 'Ungarn', type: 'PKW', plant: 'Győr' },
-    'WME': { make: 'smart', country: 'Deutschland', type: 'Kleinwagen', plant: 'Hambach' },
-    'VF1': { make: 'Renault', country: 'Frankreich', type: 'PKW', plant: 'Flins/Sandouville' },
-    'VF3': { make: 'Peugeot', country: 'Frankreich', type: 'PKW', plant: 'Sochaux/Rennes' },
-    
-    'JTD': { make: 'Toyota', country: 'Japan', type: 'PKW', plant: 'Toyota City' },
-    'JTE': { make: 'Toyota', country: 'Japan', type: 'SUV/Truck', plant: 'Tahara' },
-    'JTH': { make: 'Toyota', country: 'Japan', type: 'Hybrid', plant: 'Tsutsumi' },
-    'JTK': { make: 'Toyota', country: 'Japan', type: 'Lexus', plant: 'Motomachi' },
-    '4T1': { make: 'Toyota', country: 'USA', type: 'PKW', plant: 'Georgetown' },
-    '5TD': { make: 'Toyota', country: 'USA', type: 'Truck/SUV', plant: 'San Antonio' },
-    
-    'JHM': { make: 'Honda', country: 'Japan', type: 'PKW', plant: 'Marysville' },
-    'JHL': { make: 'Honda', country: 'Japan', type: 'Acura', plant: 'East Liberty' },
-    '1HG': { make: 'Honda', country: 'USA', type: 'Civic/Accord', plant: 'Marysville' },
-    '2HG': { make: 'Honda', country: 'USA', type: 'Civic', plant: 'Greensburg' },
-    '19X': { make: 'Honda', country: 'USA', type: 'Acura NSX', plant: 'Performance Mfg Center' },
-    
-    'JM1': { make: 'Mazda', country: 'Japan', type: 'PKW', plant: 'Hiroshima' },
-    'JM3': { make: 'Mazda', country: 'Japan', type: 'SUV', plant: 'Hofu' },
-    '3MZ': { make: 'Mazda', country: 'Mexico', type: 'PKW', plant: 'Salamanca' },
-    
-    'JF1': { make: 'Subaru', country: 'Japan', type: 'PKW', plant: 'Gunma' },
-    'JF2': { make: 'Subaru', country: 'Japan', type: 'SUV', plant: 'Gunma' },
-    '4S3': { make: 'Subaru', country: 'USA', type: 'Legacy/Outback', plant: 'Lafayette' },
-    '4S4': { make: 'Subaru', country: 'USA', type: 'Ascent', plant: 'Lafayette' },
-    
-    'JN1': { make: 'Nissan', country: 'Japan', type: 'PKW', plant: 'Oppama' },
-    'JN8': { make: 'Nissan', country: 'Japan', type: 'SUV', plant: 'Kyushu' },
-    'JNK': { make: 'Nissan', country: 'Japan', type: 'Infiniti', plant: 'Tochigi' },
-    '1N4': { make: 'Nissan', country: 'USA', type: 'Altima/Sentra', plant: 'Smyrna' },
-    '1N6': { make: 'Nissan', country: 'USA', type: 'Titan', plant: 'Canton' },
-    '5N1': { make: 'Nissan', country: 'USA', type: 'Pathfinder', plant: 'Smyrna' },
-    
-    'KMH': { make: 'Hyundai', country: 'Südkorea', type: 'PKW', plant: 'Ulsan/Asan' },
-    'KMF': { make: 'Hyundai', country: 'Südkorea', type: 'SUV', plant: 'Ulsan' },
-    'KMG': { make: 'Hyundai', country: 'Südkorea', type: 'Genesis', plant: 'Ulsan' },
-    'KM8': { make: 'Hyundai', country: 'USA', type: 'Santa Fe', plant: 'Montgomery' },
-    
-    'KNA': { make: 'Kia', country: 'Südkorea', type: 'PKW', plant: 'Sohari/Hwaseong' },
-    'KNE': { make: 'Kia', country: 'Südkorea', type: 'EV', plant: 'Hwaseong' },
-    'KND': { make: 'Kia', country: 'USA', type: 'Sorento/Telluride', plant: 'West Point' },
-    
-    '1G1': { make: 'Chevrolet', country: 'USA', type: 'Camaro/Corvette', plant: 'Bowling Green' },
-    '1G6': { make: 'Cadillac', country: 'USA', type: 'Luxury', plant: 'Lansing' },
-    '1GM': { make: 'Chevrolet', country: 'USA', type: 'Truck/SUV', plant: 'Various' },
-    '1GC': { make: 'Chevrolet', country: 'USA', type: 'Silverado', plant: 'Fort Wayne' },
-    '3G1': { make: 'Chevrolet', country: 'Mexico', type: 'Aveo/Spark', plant: 'Ramos Arizpe' },
-    
-    '1FA': { make: 'Ford', country: 'USA', type: 'PKW', plant: 'Dearborn' },
-    '1FT': { make: 'Ford', country: 'USA', type: 'F-Series', plant: 'Dearborn Truck' },
-    '1FM': { make: 'Ford', country: 'USA', type: 'Explorer/Expedition', plant: 'Chicago' },
-    '1LN': { make: 'Lincoln', country: 'USA', type: 'Luxury', plant: 'Flat Rock' },
-    '3FA': { make: 'Ford', country: 'Mexico', type: 'Fiesta/Focus', plant: 'Cuautitlan' },
-    
-    '1C3': { make: 'Chrysler', country: 'USA', type: 'PKW', plant: 'Windsor' },
-    '1C4': { make: 'Chrysler', country: 'USA', type: 'Jeep', plant: 'Toledo' },
-    '1C6': { make: 'Chrysler', country: 'USA', type: 'Ram', plant: 'Warren Truck' },
-    '2C3': { make: 'Chrysler', country: 'Canada', type: 'Challenger/Charger', plant: 'Brampton' },
-    
-    'VF7': { make: 'Citroën', country: 'Frankreich', type: 'PKW', plant: 'Rennes/Aulnay' },
-    'VF8': { make: 'Citroën', country: 'Frankreich', type: 'Berlingo/Jumper', plant: 'Valenciennes' },
-    
-    'ZFA': { make: 'Fiat', country: 'Italien', type: 'PKW', plant: 'Pomigliano/Melfi' },
-    'ZAR': { make: 'Alfa Romeo', country: 'Italien', type: 'PKW', plant: 'Cassino' },
-    'ZAM': { make: 'Maserati', country: 'Italien', type: 'Luxury', plant: 'Modena' },
-    'ZFF': { make: 'Ferrari', country: 'Italien', type: 'Supercar', plant: 'Maranello' },
-    'ZLA': { make: 'Lamborghini', country: 'Italien', type: 'Supercar', plant: 'Sant\'Agata' },
-    
-    'YV1': { make: 'Volvo', country: 'Schweden', type: 'PKW', plant: 'Göteborg' },
-    'YV4': { make: 'Volvo', country: 'Schweden', type: 'XC90', plant: 'Göteborg' },
-    'LYV': { make: 'Volvo', country: 'China', type: 'PKW', plant: 'Luqiao' },
-    
-    'YS3': { make: 'Saab', country: 'Schweden', type: 'PKW', plant: 'Trollhättan' },
-    
-    'SJN': { make: 'Nissan', country: 'UK', type: 'PKW', plant: 'Sunderland' },
-    'SAJ': { make: 'Jaguar', country: 'UK', type: 'Luxury', plant: 'Castle Bromwich' },
-    'SAL': { make: 'Land Rover', country: 'UK', type: 'SUV', plant: 'Solihull' },
-    'SCB': { make: 'Bentley', country: 'UK', type: 'Luxury', plant: 'Crewe' },
-    'SCC': { make: 'Lotus', country: 'UK', type: 'Sports', plant: 'Hethel' },
-    'SCE': { make: 'McLaren', country: 'UK', type: 'Supercar', plant: 'Woking' },
-    
-    'LGX': { make: 'BYD', country: 'China', type: 'EV', plant: 'Shenzhen' },
-    'LGB': { make: 'Geely', country: 'China', type: 'PKW', plant: 'Hangzhou' },
-    'LDC': { make: 'Chery', country: 'China', type: 'PKW', plant: 'Wuhu' },
-    'LFV': { make: 'FAW', country: 'China', type: 'PKW', plant: 'Changchun' },
-    'LSG': { make: 'SAIC', country: 'China', type: 'PKW', plant: 'Shanghai' },
-    'LBV': { make: 'BMW', country: 'China', type: 'PKW', plant: 'Shenyang' },
-    'LDY': { make: 'Mercedes-Benz', country: 'China', type: 'PKW', plant: 'Beijing' },
-    'LFP': { make: 'Audi', country: 'China', type: 'PKW', plant: 'Changchun' },
-    'LVG': { make: 'Volkswagen', country: 'China', type: 'PKW', plant: 'Shanghai' },
-    'LTV': { make: 'Tesla', country: 'China', type: 'EV', plant: 'Shanghai' },
-    
-    'NLE': { make: 'Tesla', country: 'Netherlands', type: 'EV', plant: 'Tilburg' },
-    '5YJ': { make: 'Tesla', country: 'USA', type: 'EV', plant: 'Fremont' },
-    '7G2': { make: 'Tesla', country: 'USA', type: 'Model Y', plant: 'Austin' },
-    
-    'NM0': { make: 'Ford', country: 'Turkey', type: 'Transit', plant: 'Kocaeli' },
-    'VNE': { make: 'Ford', country: 'Spain', type: 'Kuga/S-Max', plant: 'Valencia' },
-    'WF0': { make: 'Ford', country: 'Deutschland', type: 'Fiesta/Focus', plant: 'Köln' },
+    // --- Deutschland
+    'WBA': { make: 'BMW', country: 'Deutschland' },
+    'WBS': { make: 'BMW', country: 'Deutschland' },
+    'WBY': { make: 'BMW', country: 'Deutschland' },
+    'WBX': { make: 'BMW', country: 'Deutschland' },
+    'WB1': { make: 'BMW', country: 'Deutschland' },
+    'WMW': { make: 'MINI', country: 'Deutschland' },
+    'WDA': { make: 'Mercedes-Benz', country: 'Deutschland' },
+    'WDB': { make: 'Mercedes-Benz', country: 'Deutschland' },
+    'WDC': { make: 'Mercedes-Benz', country: 'Deutschland' },
+    'WDD': { make: 'Mercedes-Benz', country: 'Deutschland' },
+    'WDF': { make: 'Mercedes-Benz', country: 'Deutschland' },
+    'WD3': { make: 'Mercedes-Benz', country: 'Deutschland' },
+    'WD4': { make: 'Mercedes-Benz', country: 'Deutschland' },
+    'W1K': { make: 'Mercedes-Benz', country: 'Deutschland' },
+    'W1N': { make: 'Mercedes-Benz', country: 'Deutschland' },
+    'W1V': { make: 'Mercedes-Benz', country: 'Deutschland' },
+    'W1Y': { make: 'Mercedes-Benz', country: 'Deutschland' },
+    'WME': { make: 'smart', country: 'Deutschland' },
+    'WAU': { make: 'Audi', country: 'Deutschland' },
+    'WA1': { make: 'Audi', country: 'Deutschland' },
+    'WUA': { make: 'Audi', country: 'Deutschland' },
+    'WVW': { make: 'Volkswagen', country: 'Deutschland' },
+    'WV1': { make: 'Volkswagen', country: 'Deutschland' },
+    'WV2': { make: 'Volkswagen', country: 'Deutschland' },
+    'WV3': { make: 'Volkswagen', country: 'Deutschland' },
+    'WVG': { make: 'Volkswagen', country: 'Deutschland' },
+    'WP0': { make: 'Porsche', country: 'Deutschland' },
+    'WP1': { make: 'Porsche', country: 'Deutschland' },
+    'W0L': { make: 'Opel', country: 'Deutschland' },
+    'W0V': { make: 'Opel', country: 'Deutschland' },
+    'WF0': { make: 'Ford', country: 'Deutschland' },
+    'WMA': { make: 'MAN', country: 'Deutschland' },
+    'WJM': { make: 'Iveco Magirus', country: 'Deutschland' },
 
-    // Ergänzungen
-    'W0L': { make: 'Opel', country: 'Deutschland', type: 'PKW', plant: 'Rüsselsheim/Eisenach' },
-    'W0V': { make: 'Opel', country: 'Deutschland', type: 'PKW', plant: 'Rüsselsheim' },
-    'WMW': { make: 'MINI', country: 'Deutschland', type: 'PKW', plant: 'Oxford/Born' },
-    'WBX': { make: 'BMW', country: 'Deutschland', type: 'SUV', plant: 'Dingolfing' },
-    'WUA': { make: 'Audi', country: 'Deutschland', type: 'quattro GmbH/RS', plant: 'Neckarsulm' },
-    'WVG': { make: 'Volkswagen', country: 'Deutschland', type: 'SUV', plant: 'Osnabrück/Zwickau' },
-    'WV3': { make: 'Volkswagen', country: 'Deutschland', type: 'Nutzfahrzeug', plant: 'Hannover' },
-    'W1K': { make: 'Mercedes-Benz', country: 'Deutschland', type: 'PKW', plant: 'Sindelfingen' },
-    'W1N': { make: 'Mercedes-Benz', country: 'Deutschland', type: 'SUV', plant: 'Bremen/Rastatt' },
-    'W1V': { make: 'Mercedes-Benz', country: 'Deutschland', type: 'Transporter', plant: 'Düsseldorf/Ludwigsfelde' },
-    'WDA': { make: 'Mercedes-Benz', country: 'Deutschland', type: 'Nutzfahrzeug', plant: 'Wörth' },
-    'UU1': { make: 'Dacia', country: 'Rumänien', type: 'PKW', plant: 'Mioveni' },
-    'VR1': { make: 'DS', country: 'Frankreich', type: 'PKW', plant: 'Poissy' },
-    'VR3': { make: 'Peugeot', country: 'Frankreich', type: 'PKW', plant: 'Mulhouse/Sochaux' },
-    'VR7': { make: 'Citroën', country: 'Frankreich', type: 'PKW', plant: 'Vigo/Mulhouse' },
-    'TMA': { make: 'Hyundai', country: 'Tschechien', type: 'PKW', plant: 'Nošovice' },
-    'U5Y': { make: 'Kia', country: 'Slowakei', type: 'PKW', plant: 'Žilina' },
-    'VNK': { make: 'Toyota', country: 'Frankreich', type: 'PKW', plant: 'Valenciennes' },
-    'SB1': { make: 'Toyota', country: 'UK', type: 'PKW', plant: 'Burnaston' },
-    'JMB': { make: 'Mitsubishi', country: 'Japan', type: 'PKW', plant: 'Okazaki' },
-    'JS2': { make: 'Suzuki', country: 'Japan', type: 'PKW', plant: 'Hamamatsu' },
-    'TSM': { make: 'Suzuki', country: 'Ungarn', type: 'PKW', plant: 'Esztergom' }
+    // --- Mitteleuropa
+    'TMB': { make: 'Škoda', country: 'Tschechien' },
+    'TMA': { make: 'Hyundai', country: 'Tschechien' },
+    'TRU': { make: 'Audi', country: 'Ungarn' },
+    'TSM': { make: 'Suzuki', country: 'Ungarn' },
+    'U5Y': { make: 'Kia', country: 'Slowakei' },
+    'UU1': { make: 'Dacia', country: 'Rumänien' },
+
+    // --- Frankreich
+    'VF1': { make: 'Renault', country: 'Frankreich' },
+    'VF3': { make: 'Peugeot', country: 'Frankreich' },
+    'VR3': { make: 'Peugeot', country: 'Frankreich' },
+    'VF7': { make: 'Citroën', country: 'Frankreich' },
+    'VR7': { make: 'Citroën', country: 'Frankreich' },
+    'VR1': { make: 'DS', country: 'Frankreich' },
+    'VF9': { make: 'Bugatti', country: 'Frankreich' },
+    'VF6': { make: 'Renault Trucks', country: 'Frankreich' },
+    'VNK': { make: 'Toyota', country: 'Frankreich' },
+
+    // --- Spanien
+    'VSS': { make: 'SEAT', country: 'Spanien' },
+    'VSK': { make: 'Nissan', country: 'Spanien' },
+    'VS6': { make: 'Ford', country: 'Spanien' },
+
+    // --- Italien
+    'ZFA': { make: 'Fiat', country: 'Italien' },
+    'ZFC': { make: 'Fiat', country: 'Italien' },
+    'ZCF': { make: 'Iveco', country: 'Italien' },
+    'ZAR': { make: 'Alfa Romeo', country: 'Italien' },
+    'ZAM': { make: 'Maserati', country: 'Italien' },
+    'ZFF': { make: 'Ferrari', country: 'Italien' },
+    'ZLA': { make: 'Lancia', country: 'Italien' },
+    'ZHW': { make: 'Lamborghini', country: 'Italien' },
+    'ZAP': { make: 'Piaggio', country: 'Italien' },
+    'ZDM': { make: 'Ducati', country: 'Italien' },
+
+    // --- Nordeuropa / Benelux
+    'YV1': { make: 'Volvo', country: 'Schweden' },
+    'YV4': { make: 'Volvo', country: 'Schweden' },
+    'YV2': { make: 'Volvo', country: 'Schweden' },
+    'YS2': { make: 'Scania', country: 'Schweden' },
+    'YS3': { make: 'Saab', country: 'Schweden' },
+    'XLR': { make: 'DAF', country: 'Niederlande' },
+
+    // --- Großbritannien
+    'SAJ': { make: 'Jaguar', country: 'Großbritannien' },
+    'SAL': { make: 'Land Rover', country: 'Großbritannien' },
+    'SCB': { make: 'Bentley', country: 'Großbritannien' },
+    'SCC': { make: 'Lotus', country: 'Großbritannien' },
+    'SCF': { make: 'Aston Martin', country: 'Großbritannien' },
+    'SBM': { make: 'McLaren', country: 'Großbritannien' },
+    'SCA': { make: 'Rolls-Royce', country: 'Großbritannien' },
+    'SJN': { make: 'Nissan', country: 'Großbritannien' },
+    'SB1': { make: 'Toyota', country: 'Großbritannien' },
+    'SHH': { make: 'Honda', country: 'Großbritannien' },
+
+    // --- Russland / Türkei
+    'XTA': { make: 'Lada', country: 'Russland' },
+    'XTT': { make: 'UAZ', country: 'Russland' },
+    'NM0': { make: 'Ford', country: 'Türkei' },
+    'NMT': { make: 'Toyota', country: 'Türkei' },
+    'NLH': { make: 'Hyundai', country: 'Türkei' },
+
+    // --- Japan
+    'JTD': { make: 'Toyota', country: 'Japan' },
+    'JTE': { make: 'Toyota', country: 'Japan' },
+    'JT2': { make: 'Toyota', country: 'Japan' },
+    'JTM': { make: 'Toyota', country: 'Japan' },
+    'JTN': { make: 'Toyota', country: 'Japan' },
+    'JTH': { make: 'Lexus', country: 'Japan' },
+    'JTJ': { make: 'Lexus', country: 'Japan' },
+    'JHM': { make: 'Honda', country: 'Japan' },
+    'JHL': { make: 'Honda', country: 'Japan' },
+    'JH2': { make: 'Honda', country: 'Japan' },
+    'JH4': { make: 'Acura', country: 'Japan' },
+    'JN1': { make: 'Nissan', country: 'Japan' },
+    'JN8': { make: 'Nissan', country: 'Japan' },
+    'JNK': { make: 'Infiniti', country: 'Japan' },
+    'JM1': { make: 'Mazda', country: 'Japan' },
+    'JM3': { make: 'Mazda', country: 'Japan' },
+    'JMZ': { make: 'Mazda', country: 'Japan' },
+    'JF1': { make: 'Subaru', country: 'Japan' },
+    'JF2': { make: 'Subaru', country: 'Japan' },
+    'JMB': { make: 'Mitsubishi', country: 'Japan' },
+    'JA3': { make: 'Mitsubishi', country: 'Japan' },
+    'JA4': { make: 'Mitsubishi', country: 'Japan' },
+    'JS2': { make: 'Suzuki', country: 'Japan' },
+    'JS3': { make: 'Suzuki', country: 'Japan' },
+    'JAA': { make: 'Isuzu', country: 'Japan' },
+    'JDA': { make: 'Daihatsu', country: 'Japan' },
+    'JKA': { make: 'Kawasaki', country: 'Japan' },
+    'JYA': { make: 'Yamaha', country: 'Japan' },
+
+    // --- Südkorea
+    'KMH': { make: 'Hyundai', country: 'Südkorea' },
+    'KMF': { make: 'Hyundai', country: 'Südkorea' },
+    'KM8': { make: 'Hyundai', country: 'Südkorea' },
+    'KMT': { make: 'Genesis', country: 'Südkorea' },
+    'KNA': { make: 'Kia', country: 'Südkorea' },
+    'KNC': { make: 'Kia', country: 'Südkorea' },
+    'KND': { make: 'Kia', country: 'Südkorea' },
+    'KNE': { make: 'Kia', country: 'Südkorea' },
+    'KL1': { make: 'Chevrolet', country: 'Südkorea' },
+    'KLA': { make: 'Daewoo', country: 'Südkorea' },
+    'KPT': { make: 'SsangYong', country: 'Südkorea' },
+    'KNM': { make: 'Renault Samsung', country: 'Südkorea' },
+
+    // --- USA
+    '1FA': { make: 'Ford', country: 'USA' },
+    '1FT': { make: 'Ford', country: 'USA' },
+    '1FM': { make: 'Ford', country: 'USA' },
+    '1FD': { make: 'Ford', country: 'USA' },
+    '1FB': { make: 'Ford', country: 'USA' },
+    '1FC': { make: 'Ford', country: 'USA' },
+    '1LN': { make: 'Lincoln', country: 'USA' },
+    '5LM': { make: 'Lincoln', country: 'USA' },
+    '1G1': { make: 'Chevrolet', country: 'USA' },
+    '1GC': { make: 'Chevrolet', country: 'USA' },
+    '1GN': { make: 'Chevrolet', country: 'USA' },
+    '1GT': { make: 'GMC', country: 'USA' },
+    '1GK': { make: 'GMC', country: 'USA' },
+    '1G4': { make: 'Buick', country: 'USA' },
+    '1G6': { make: 'Cadillac', country: 'USA' },
+    '1C3': { make: 'Chrysler', country: 'USA' },
+    '1C4': { make: 'Jeep', country: 'USA' },
+    '1J4': { make: 'Jeep', country: 'USA' },
+    '1J8': { make: 'Jeep', country: 'USA' },
+    '1C6': { make: 'Ram', country: 'USA' },
+    '1B3': { make: 'Dodge', country: 'USA' },
+    '5YJ': { make: 'Tesla', country: 'USA' },
+    '7SA': { make: 'Tesla', country: 'USA' },
+    '7G2': { make: 'Tesla', country: 'USA' },
+    '1HG': { make: 'Honda', country: 'USA' },
+    '5J6': { make: 'Honda', country: 'USA' },
+    '5FN': { make: 'Honda', country: 'USA' },
+    '19X': { make: 'Acura', country: 'USA' },
+    '4T1': { make: 'Toyota', country: 'USA' },
+    '4T3': { make: 'Toyota', country: 'USA' },
+    '5TD': { make: 'Toyota', country: 'USA' },
+    '5TF': { make: 'Toyota', country: 'USA' },
+    '1N4': { make: 'Nissan', country: 'USA' },
+    '1N6': { make: 'Nissan', country: 'USA' },
+    '5N1': { make: 'Nissan', country: 'USA' },
+    '4S3': { make: 'Subaru', country: 'USA' },
+    '4S4': { make: 'Subaru', country: 'USA' },
+    '5NP': { make: 'Hyundai', country: 'USA' },
+    '5NM': { make: 'Hyundai', country: 'USA' },
+    '5XY': { make: 'Kia', country: 'USA' },
+    '5XX': { make: 'Kia', country: 'USA' },
+    '4US': { make: 'BMW', country: 'USA' },
+    '5UX': { make: 'BMW', country: 'USA' },
+    '5YM': { make: 'BMW', country: 'USA' },
+    '4JG': { make: 'Mercedes-Benz', country: 'USA' },
+    '1VW': { make: 'Volkswagen', country: 'USA' },
+    '7JR': { make: 'Volvo', country: 'USA' },
+    '50E': { make: 'Lucid', country: 'USA' },
+    '7FC': { make: 'Rivian', country: 'USA' },
+
+    // --- Kanada / Mexiko
+    '2FA': { make: 'Ford', country: 'Kanada' },
+    '2G1': { make: 'Chevrolet', country: 'Kanada' },
+    '2C3': { make: 'Chrysler', country: 'Kanada' },
+    '2B3': { make: 'Dodge', country: 'Kanada' },
+    '2HG': { make: 'Honda', country: 'Kanada' },
+    '3FA': { make: 'Ford', country: 'Mexiko' },
+    '3G1': { make: 'Chevrolet', country: 'Mexiko' },
+    '3N1': { make: 'Nissan', country: 'Mexiko' },
+    '3MZ': { make: 'Mazda', country: 'Mexiko' },
+    '3VW': { make: 'Volkswagen', country: 'Mexiko' },
+    '3C6': { make: 'Ram', country: 'Mexiko' },
+    '3C7': { make: 'Ram', country: 'Mexiko' },
+
+    // --- China
+    'LGX': { make: 'BYD', country: 'China' },
+    'LC0': { make: 'BYD', country: 'China' },
+    'L6T': { make: 'Geely', country: 'China' },
+    'LVV': { make: 'Chery', country: 'China' },
+    'LGW': { make: 'Great Wall', country: 'China' },
+    'LSJ': { make: 'MG', country: 'China' },
+    'LSV': { make: 'Volkswagen', country: 'China' },
+    'LFV': { make: 'Volkswagen', country: 'China' },
+    'LSG': { make: 'SAIC-GM', country: 'China' },
+    'LBV': { make: 'BMW', country: 'China' },
+    'LE4': { make: 'Mercedes-Benz', country: 'China' },
+    'LRW': { make: 'Tesla', country: 'China' },
+    'LTV': { make: 'Toyota', country: 'China' },
+    'LYV': { make: 'Volvo', country: 'China' },
+    'LDC': { make: 'Peugeot Citroën', country: 'China' },
+    'LS5': { make: 'Changan', country: 'China' },
+    'LVS': { make: 'Ford', country: 'China' },
+
+    // --- Indien / Südostasien / Südamerika
+    'MA3': { make: 'Maruti Suzuki', country: 'Indien' },
+    'MA1': { make: 'Mahindra', country: 'Indien' },
+    'MAT': { make: 'Tata', country: 'Indien' },
+    'MAL': { make: 'Hyundai', country: 'Indien' },
+    'MAJ': { make: 'Ford', country: 'Indien' },
+    'MR0': { make: 'Toyota', country: 'Thailand' },
+    'MRH': { make: 'Honda', country: 'Thailand' },
+    'MMB': { make: 'Mitsubishi', country: 'Thailand' },
+    '9BW': { make: 'Volkswagen', country: 'Brasilien' },
+    '9BG': { make: 'Chevrolet', country: 'Brasilien' },
+    '9BD': { make: 'Fiat', country: 'Brasilien' },
+    '9BF': { make: 'Ford', country: 'Brasilien' }
   },
 
+  // Beginn des Herstellercodes (2 Stellen), wenn der genaue Code fehlt – nur dort, wo alle bekannten Codes zum selben Hersteller gehören
+  makePrefixes: {
+    'WB': { make: 'BMW', country: 'Deutschland' },
+    'WP': { make: 'Porsche', country: 'Deutschland' },
+    'WA': { make: 'Audi', country: 'Deutschland' },
+    'WD': { make: 'Mercedes-Benz', country: 'Deutschland' },
+    'WV': { make: 'Volkswagen', country: 'Deutschland' },
+    'W0': { make: 'Opel', country: 'Deutschland' },
+    'WF': { make: 'Ford', country: 'Deutschland' },
+    'YV': { make: 'Volvo', country: 'Schweden' },
+    'JS': { make: 'Suzuki', country: 'Japan' },
+    'JF': { make: 'Subaru', country: 'Japan' },
+    'JN': { make: 'Nissan', country: 'Japan' },
+    'JH': { make: 'Honda', country: 'Japan' },
+    'JT': { make: 'Toyota', country: 'Japan' }
+  },
 
   // Jahrescodes (Position 10), ohne I, O, Q, U, Z und 0
   yearCodes: {
@@ -225,8 +325,13 @@ const VIN_DECODER = {
       year.age = Math.max(0, new Date().getFullYear() - remote.modelYear);
       year.confidence = 'estimated';
     }
+    // Ist der Hersteller lokal unbekannt, kommt er aus der Fahrzeugdatenbank
+    const manufacturer = decoded.manufacturer?.name || !remote.make
+      ? decoded.manufacturer
+      : { ...decoded.manufacturer, name: remote.make, matchedBy: 'database' };
     return {
       ...decoded,
+      manufacturer,
       model: remote.model || decoded.model,
       engine: remote.engine || decoded.engine,
       year,
@@ -250,10 +355,11 @@ const VIN_DECODER = {
     }
 
     const wmi = cleanVIN.substring(0, 3);
-    const manufacturer = VIN_DECODER.manufacturers[wmi];
-    if (!manufacturer) {
-      return { isValid: false, error: `Unbekannter Herstellercode: ${wmi}` };
-    }
+    // Genauer Herstellercode, sonst Zuordnung nach den ersten 2 Stellen; sonst bleibt der Hersteller offen
+    // (die VIN ist trotzdem gültig und kann über die Fahrzeugdatenbank ergänzt werden)
+    const exact = VIN_DECODER.manufacturers[wmi];
+    const byPrefix = exact ? null : VIN_DECODER.makePrefixes[wmi.slice(0, 2)];
+    const manufacturer = exact || byPrefix || null;
 
     const checkRequired = VIN_DECODER.usesCheckDigit(wmi);
     const checkOk = VIN_DECODER.checkDigitValid(cleanVIN);
@@ -268,10 +374,10 @@ const VIN_DECODER = {
       isValid: true,
       vin: cleanVIN,
       manufacturer: {
-        name: manufacturer.make,
-        country: manufacturer.country,
-        type: manufacturer.type,
-        plant: manufacturer.plant
+        name: manufacturer?.make ?? null,
+        country: manufacturer?.country ?? null,
+        wmi,
+        matchedBy: exact ? 'wmi' : byPrefix ? 'prefix' : null
       },
       model: { series: null },
       engine: null,
@@ -288,7 +394,7 @@ const VIN_DECODER = {
         vis: cleanVIN.substring(9)
       },
       market: {
-        primaryMarket: manufacturer.country === 'Deutschland' ? 'Europäische Union' : manufacturer.country
+        primaryMarket: manufacturer?.country === 'Deutschland' ? 'Europäische Union' : manufacturer?.country ?? null
       }
     };
   }

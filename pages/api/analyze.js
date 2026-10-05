@@ -124,6 +124,14 @@ async function runAI({ prompt, tool, suffix, fallback }) {
 
 // --- Prompts ---------------------------------------------------------------
 
+// Hersteller nur ausgeben, wenn bekannt
+function describeManufacturer(decoded) {
+  const name = clean(decoded?.manufacturer?.name);
+  if (!name) return '';
+  const country = clean(decoded.manufacturer.country);
+  return `- Manufacturer: ${name}${country ? ` (${country})` : ''}\n`;
+}
+
 // Modell-/Motordaten nur ausgeben, wenn sie aus der Fahrzeugdatenbank bekannt sind
 function describeEngine(decoded) {
   const e = decoded?.engine;
@@ -218,8 +226,7 @@ function buildObdPrompt(obdCode, codeInfo, obdVin, obdVinDecoded, registration, 
     vehicleContext = `
 VIN: ${obdVin}
 VIN Analysis:
-- Manufacturer: ${clean(obdVinDecoded.manufacturer?.name) || 'Unknown'} (${clean(obdVinDecoded.manufacturer?.country) || 'Unknown'})
-${obdVinDecoded.year?.modelYear ? `- Model Year: ${clean(String(obdVinDecoded.year.modelYear))}${obdVinDecoded.year.confidence === 'estimated' ? ' (estimated from VIN)' : ''}\n` : ''}${describeEngine(obdVinDecoded)}`;
+${describeManufacturer(obdVinDecoded)}${obdVinDecoded.year?.modelYear ? `- Model Year: ${clean(String(obdVinDecoded.year.modelYear))}${obdVinDecoded.year.confidence === 'estimated' ? ' (estimated from VIN)' : ''}\n` : ''}${describeEngine(obdVinDecoded)}`;
   }
   vehicleContext += describeRegistration(registration) + describeHistory(history);
 
@@ -272,8 +279,7 @@ function buildDiagnosePrompt(problem, carDetails, vin, vinDecoded, registration,
     vinContext = `
 VIN: ${vin}
 VIN Analysis:
-- Manufacturer: ${clean(vinDecoded.manufacturer?.name) || 'Unknown'} (${clean(vinDecoded.manufacturer?.country) || 'Unknown'})
-${vinDecoded.year?.modelYear ? `- Model Year: ${clean(String(vinDecoded.year.modelYear))}${vinDecoded.year.confidence === 'estimated' ? ' (estimated from VIN)' : ''}\n` : ''}${describeEngine(vinDecoded)}`;
+${describeManufacturer(vinDecoded)}${vinDecoded.year?.modelYear ? `- Model Year: ${clean(String(vinDecoded.year.modelYear))}${vinDecoded.year.confidence === 'estimated' ? ' (estimated from VIN)' : ''}\n` : ''}${describeEngine(vinDecoded)}`;
   }
   vinContext += describeRegistration(registration) + describeHistory(history);
 

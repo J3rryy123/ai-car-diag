@@ -33,12 +33,18 @@ function VinInfo({ decoded, styles: s }) {
   const engineParts = [engine?.displacement, engine?.fuelType, engine?.power, engine?.name].filter(Boolean);
   const hint = {
     loading: 'Modell- und Motordaten werden abgefragt …',
-    none: 'Zu dieser VIN liegen keine Modell-/Motordaten vor – bitte laut Fahrzeugschein ergänzen.',
+    none: 'Modell und Motor lassen sich aus dieser FIN nicht bestimmen – bitte laut Fahrzeugschein eintragen oder den Fahrzeugschein scannen.',
     unavailable: 'Fahrzeugdatenbank nicht erreichbar – bitte Modell und Motor manuell angeben.'
   }[decoded.lookup];
   return (
     <div className={`${s.vinInfo} ${s.vinInfoValid}`}>
-      <div><strong>Hersteller:</strong> {manufacturer?.name} ({manufacturer?.country})</div>
+      <div>
+        <strong>Hersteller:</strong>{' '}
+        {manufacturer?.name
+          ? `${manufacturer.name}${manufacturer.country ? ` (${manufacturer.country})` : ''}`
+          : `nicht in der Liste (Herstellercode ${manufacturer?.wmi})`}
+        {manufacturer?.matchedBy === 'prefix' && <span style={{color: '#9ca3af', fontSize: '0.85em'}}> · nach Anfang des Herstellercodes zugeordnet</span>}
+      </div>
       {model?.series && <div><strong>Modell:</strong> {model.series}</div>}
       {year?.modelYear && (
         <div>
@@ -167,7 +173,8 @@ const KFZDiagnosePlatform = () => {
         setDecoded({ ...local, lookup: 'none' });
         return;
       }
-      const merged = { ...VIN_DECODER.mergeRemote(local, data), lookup: 'done' };
+      // Nur Hersteller bekannt (typisch bei europäischen Fahrzeugen): Hinweis "keine Modell-/Motordaten" bleibt
+      const merged = { ...VIN_DECODER.mergeRemote(local, data), lookup: data.model || data.engine ? 'done' : 'none' };
       setDecoded(merged);
       onMerged?.(merged);
     } catch {

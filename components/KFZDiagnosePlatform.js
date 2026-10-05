@@ -6,6 +6,7 @@ import CaseHistory from './CaseHistory';
 import RegistrationScan from './RegistrationScan';
 import GuidedDiagnosis from './GuidedDiagnosis';
 import MultiCodeAnalysis from './MultiCodeAnalysis';
+import PrintReport from './PrintReport';
 import { addCase } from '../utils/caseHistory';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
@@ -70,6 +71,48 @@ function DemoNotice({ info, styles: s }) {
   );
 }
 
+// Leiste unter dem Ergebnis: Kundenname (optional) und „Als PDF speichern / Drucken“
+function PrintToolbar({ demo, customer, onCustomer, onPrint, styles: s }) {
+  if (demo) {
+    return (
+      <div className={s.section} style={{ color: '#9ca3af', fontSize: '0.85em' }}>
+        Beispielanalysen lassen sich nicht als Bericht ausgeben.
+      </div>
+    );
+  }
+  return (
+    <div className={s.section} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+      <input
+        type="text"
+        value={customer}
+        onChange={(e) => onCustomer(e.target.value)}
+        placeholder="Kunde (optional, erscheint im Bericht)"
+        maxLength={80}
+        className={s.input}
+        style={{ flex: '1 1 14rem' }}
+      />
+      <button type="button" className={s.input} style={{ cursor: 'pointer' }} onClick={onPrint}>
+        📄 Als PDF speichern / Drucken
+      </button>
+    </div>
+  );
+}
+
+// Druckdialog öffnen; der Dokumenttitel wird zum Vorschlag für den PDF-Dateinamen
+function printWithTitle(title) {
+  const previous = document.title;
+  const restore = () => {
+    document.title = previous;
+    window.removeEventListener('afterprint', restore);
+  };
+  document.title = title;
+  window.addEventListener('afterprint', restore);
+  setTimeout(restore, 60000); // Rückfall, falls der Browser kein afterprint meldet
+  window.print();
+}
+
+const fileSafe = (text) => text.normalize('NFKD').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '');
+
 const KFZDiagnosePlatform = () => {
   // Tab Management
   const [activeTab, setActiveTab] = useState('diagnose');
@@ -98,6 +141,7 @@ const KFZDiagnosePlatform = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
+  const [reportCustomer, setReportCustomer] = useState('');
   const [historyVersion, setHistoryVersion] = useState(0);
   const [guidedCase, setGuidedCase] = useState(null);
   const [guidedKey, setGuidedKey] = useState(0);
@@ -503,6 +547,23 @@ const KFZDiagnosePlatform = () => {
           </div>
         )}
 
+        <PrintToolbar
+          demo={debugInfo?.demo}
+          customer={reportCustomer}
+          onCustomer={setReportCustomer}
+          onPrint={() => printWithTitle(fileSafe(`Diagnose_${[carDetails.make, carDetails.model].filter(Boolean).join('-')}_${new Date().toISOString().slice(0, 10)}`))}
+          styles={styles}
+        />
+        {!debugInfo?.demo && (
+          <PrintReport
+            type="diagnose"
+            result={results}
+            vehicle={{ ...carDetails, vin: VIN_DECODER.cleanVIN(vin) }}
+            problem={problem}
+            customer={reportCustomer}
+          />
+        )}
+
         {debugInfo?.debugAllowed && (
           <details className={styles.debugInfo}>
             <summary>🔧 Debug Information</summary>
@@ -591,6 +652,30 @@ const KFZDiagnosePlatform = () => {
           }`}>
             <strong>⚠️ Dringlichkeit:</strong> {obdResults.urgency}
           </div>
+        )}
+
+        <PrintToolbar
+          demo={debugInfo?.demo}
+          customer={reportCustomer}
+          onCustomer={setReportCustomer}
+          onPrint={() => printWithTitle(fileSafe(`OBD2_${obdCode.toUpperCase()}_${new Date().toISOString().slice(0, 10)}`))}
+          styles={styles}
+        />
+        {!debugInfo?.demo && (
+          <PrintReport
+            type="obd2"
+            result={obdResults}
+            vehicle={{
+              make: obdRegistration?.make || obdVinDecoded?.manufacturer?.name,
+              model: obdRegistration?.model,
+              year: obdRegistration?.firstRegistration?.slice(0, 4) || obdVinDecoded?.year?.modelYear,
+              vin: VIN_DECODER.cleanVIN(obdVin),
+              registration: obdRegistration
+            }}
+            code={obdCode.toUpperCase()}
+            codeInfo={obdCodeDecoded}
+            customer={reportCustomer}
+          />
         )}
 
         {debugInfo?.debugAllowed && (

@@ -76,6 +76,7 @@ describe('Auswertung', () => {
     expect(content[0]).toMatchObject({ type: 'image', source: { type: 'base64', media_type: 'image/png' } });
     expect(content[1].type).toBe('text');
     expect(tool.name).toBe('report_registration');
+    expect(mocks.callClaude.mock.calls[0][2]).toEqual({ effort: 'low' });
   });
 
   it('liefert normalisierte Felder ohne Halterdaten', async () => {

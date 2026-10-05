@@ -38,7 +38,8 @@ export default async function handler(req, res) {
         { type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } },
         { type: 'text', text: REGISTRATION_PROMPT },
       ],
-      REGISTRATION_TOOL
+      REGISTRATION_TOOL,
+      { effort: 'low' } // reine Texterkennung, kein langes Nachdenken nötig
     );
     if (!toolInput || toolInput.isRegistrationDocument === false) {
       return res.status(422).json({ message: 'Auf dem Foto wurde kein Fahrzeugschein erkannt. Bitte neu aufnehmen.' });

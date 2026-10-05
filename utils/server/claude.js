@@ -1,17 +1,17 @@
-// Gemeinsamer Zugang zur Claude-API: Zeitlimit, Wiederholung bei Überlastung, erzwungener Tool-Aufruf.
+// Gemeinsamer Zugang zur Claude-API: Zeitlimit, Wiederholung bei Überlastung, strukturierte Antwort per Tool-Aufruf.
 // `content` ist ein Text oder eine Liste von Inhaltsblöcken (z. B. Bild + Text).
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-5-5';
 
 // Zeitbudget für einen Claude-Aufruf inkl. Wiederholungen (unter maxDuration)
-const CLAUDE_TOTAL_BUDGET_MS = 52 * 1000;
-const CLAUDE_ATTEMPT_TIMEOUT_MS = 28 * 1000;
+const CLAUDE_TOTAL_BUDGET_MS = 55 * 1000;
+const CLAUDE_ATTEMPT_TIMEOUT_MS = 45 * 1000;
 const CLAUDE_MAX_ATTEMPTS = 3;
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504, 529]);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Ein Aufruf mit Zeitlimit; wirft Fehler mit `retryable`-Flag
-async function callClaudeOnce(content, tool, timeoutMs) {
+async function callClaudeOnce(content, tool, timeoutMs, effort) {
   let response;
   try {
     response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -23,11 +23,14 @@ async function callClaudeOnce(content, tool, timeoutMs) {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 4000,
+        // Das Modell denkt vor der Antwort (zählt zu max_tokens), daher großzügig bemessen
+        max_tokens: 16000,
+        output_config: { effort },
+        system: `Übergib dein Ergebnis immer durch Aufruf des Tools "${tool.name}". Antworte nicht zusätzlich im Text.`,
         messages: [{ role: 'user', content }],
-        // Antwort erzwingt das Tool → garantiert strukturiertes Ergebnis
+        // Aktuelle Modelle lehnen erzwungene Tool-Wahl (type: "tool"/"any") mit HTTP 400 ab → "auto" plus Anweisung im system-Prompt
         tools: [tool],
-        tool_choice: { type: 'tool', name: tool.name },
+        tool_choice: { type: 'auto' },
       }),
       signal: AbortSignal.timeout(timeoutMs),
     });
@@ -62,14 +65,14 @@ async function callClaudeOnce(content, tool, timeoutMs) {
 }
 
 // Mit Wiederholung bei Überlastung/Zeitüberschreitung, solange das Zeitbudget reicht
-export async function callClaude(content, tool) {
+export async function callClaude(content, tool, { effort = 'medium' } = {}) {
   const startedAt = Date.now();
   let lastError;
   for (let attempt = 1; attempt <= CLAUDE_MAX_ATTEMPTS; attempt++) {
     const remaining = CLAUDE_TOTAL_BUDGET_MS - (Date.now() - startedAt);
     if (remaining < 5000) break;
     try {
-      return await callClaudeOnce(content, tool, Math.min(CLAUDE_ATTEMPT_TIMEOUT_MS, remaining));
+      return await callClaudeOnce(content, tool, Math.min(CLAUDE_ATTEMPT_TIMEOUT_MS, remaining), effort);
     } catch (error) {
       lastError = error;
       if (!error.retryable || attempt === CLAUDE_MAX_ATTEMPTS) break;

@@ -12,7 +12,7 @@ const MAX_FIELD_LENGTH = 100;
 const OBD_CODE_PATTERN = /^[PBCU][0-9A-F]{4}$/;
 const VIN_PATTERN = /^[A-HJ-NPR-Z0-9]{17}$/;
 
-const LANGUAGE_NOTE = 'Antworte vollständig auf Deutsch und übergib das Ergebnis über das bereitgestellte Tool.';
+const LANGUAGE_NOTE = 'Antworte vollständig auf Deutsch und übergib das Ergebnis durch Aufruf des bereitgestellten Tools.';
 
 const isRateLimited = createRateLimiter('analyze', 60 * 1000, 20);
 
@@ -80,19 +80,38 @@ const OBD_TOOL = {
  * Runs the prompt against the Claude API.
  * Returns { analysis, mode, modelUsed, error } or null when no API key is configured.
  */
+const toNumber = (value, fallback) => (Number.isFinite(Number(value)) && value !== '' && value !== null ? Number(value) : fallback);
+const toList = (value) => (Array.isArray(value) ? value : []);
+
+// Ergebnis des Modells in die Form bringen, die die Oberfläche erwartet (ohne Tool-Zwang kann es abweichen)
+function normalizeAnalysis(analysis) {
+  if (!analysis || typeof analysis !== 'object') return analysis;
+  const result = { ...analysis };
+  if ('confidence' in result) result.confidence = toNumber(result.confidence, 50);
+  if ('possibleCauses' in result) {
+    result.possibleCauses = toList(result.possibleCauses)
+      .filter((c) => c && typeof c === 'object' && c.cause)
+      .map((c) => ({ ...c, cause: String(c.cause), probability: toNumber(c.probability, 0), cost: c.cost == null ? '' : String(c.cost) }));
+  }
+  for (const key of ['nextSteps', 'symptoms']) {
+    if (key in result) result[key] = toList(result[key]).map(String);
+  }
+  return result;
+}
+
 async function runAI({ prompt, tool, suffix, fallback }) {
   if (!process.env.CLAUDE_API_KEY) return null;
 
   try {
     const { toolInput, content, model } = await callClaude(prompt, tool);
     if (toolInput) {
-      return { analysis: toolInput, mode: `claude${suffix}`, modelUsed: model, error: null };
+      return { analysis: normalizeAnalysis(toolInput), mode: `claude${suffix}`, modelUsed: model, error: null };
     }
     // Ohne Tool-Aufruf: JSON im Text suchen, sonst Freitext-Fallback
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
-        return { analysis: JSON.parse(jsonMatch[0]), mode: `claude${suffix}`, modelUsed: model, error: null };
+        return { analysis: normalizeAnalysis(JSON.parse(jsonMatch[0])), mode: `claude${suffix}`, modelUsed: model, error: null };
       } catch (parseError) {
         console.error('JSON parse error:', parseError);
       }

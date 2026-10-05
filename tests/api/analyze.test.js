@@ -109,6 +109,30 @@ describe('Antworten', () => {
   });
 });
 
+describe('Normalisierung der Modellantwort', () => {
+  it('bringt abweichende Typen in die erwartete Form', async () => {
+    mocks.callClaude.mockResolvedValueOnce(
+      claudeAnswer({
+        confidence: '85',
+        possibleCauses: [{ cause: 'Falschluft', probability: '60', cost: 150 }, { probability: 10 }, null, 'Text'],
+        nextSteps: 'kein Array',
+        symptoms: [1, 'Ruckeln'],
+      })
+    );
+    const res = await call(handler, { body: diagnose(), ip: uniqueIp() });
+    expect(res.body.analysis.confidence).toBe(85);
+    expect(res.body.analysis.possibleCauses).toEqual([{ cause: 'Falschluft', probability: 60, cost: '150' }]);
+    expect(res.body.analysis.nextSteps).toEqual([]);
+    expect(res.body.analysis.symptoms).toEqual(['1', 'Ruckeln']);
+  });
+
+  it('setzt eine Standard-Sicherheit, wenn sie fehlt oder unbrauchbar ist', async () => {
+    mocks.callClaude.mockResolvedValueOnce(claudeAnswer({ confidence: 'hoch' }));
+    const res = await call(handler, { body: diagnose(), ip: uniqueIp() });
+    expect(res.body.analysis.confidence).toBe(50);
+  });
+});
+
 describe('Debug-Details nur für Administratoren', () => {
   it.each([
     ['Mitarbeiter', { mode: 'users', authenticated: true, user: { id: 'u', role: 'user' } }, false],

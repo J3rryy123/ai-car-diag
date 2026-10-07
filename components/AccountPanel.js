@@ -46,6 +46,44 @@ const ChangePassword = () => {
   );
 };
 
+const STATUS_LABELS = {
+  active: 'Aktiv', trialing: 'Testphase', past_due: 'Zahlung ausstehend', canceled: 'Beendet', unpaid: 'Unbezahlt',
+  incomplete: 'Nicht abgeschlossen', incomplete_expired: 'Abgelaufen', paused: 'Pausiert', none: '–'
+};
+
+const Subscription = ({ user }) => {
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const until = user.currentPeriodEnd && new Date(user.currentPeriodEnd).toLocaleDateString('de-DE');
+
+  const manage = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      window.location.href = (await api('/api/billing/portal', 'POST', {})).url;
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <h3 style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Abonnement</h3>
+      <p>Status: <strong>{STATUS_LABELS[user.subscriptionStatus] || user.subscriptionStatus}</strong></p>
+      {until && (
+        <p style={{ color: '#9ca3af' }}>
+          {user.cancelAtPeriodEnd ? `Gekündigt – Zugang bis ${until}` : `Nächste Verlängerung: ${until}`}
+        </p>
+      )}
+      {error && <div className={styles.error} style={{ marginTop: '0.5rem' }}>⚠️ {error}</div>}
+      <button className={styles.button} onClick={manage} disabled={busy} style={{ marginTop: '0.5rem' }}>
+        Abo verwalten · Rechnungen · Kündigen
+      </button>
+    </div>
+  );
+};
+
 const UserAdmin = ({ currentUserId }) => {
   const [users, setUsers] = useState([]);
   const [error, setError] = useState(null);
@@ -103,8 +141,10 @@ const UserAdmin = ({ currentUserId }) => {
           <div key={u.id} style={{ border: '1px solid #323c4a', borderRadius: 8, padding: '0.5rem 0.75rem', opacity: u.active ? 1 : 0.6 }}>
             <strong>{u.displayName}</strong> <span style={{ color: '#9ca3af' }}>({u.username})</span>
             <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem' }}>
-              {u.role === 'admin' ? '🛡️ Admin' : 'Mitarbeiter'}{!u.active && ' · deaktiviert'}
+              {u.role === 'admin' ? '🛡️ Admin' : u.accountType === 'subscriber' ? 'Abonnent' : 'Mitarbeiter'}{!u.active && ' · deaktiviert'}
+              {u.accountType === 'subscriber' && ` · Abo: ${STATUS_LABELS[u.subscriptionStatus] || u.subscriptionStatus}`}
             </span>
+            {u.email && <div style={{ color: '#9ca3af', fontSize: '0.8rem' }}>{u.email}</div>}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.4rem' }}>
               <button style={small} onClick={() => resetPassword(u)}>Passwort setzen</button>
               {u.id !== currentUserId && (
@@ -152,6 +192,7 @@ const AccountPanel = ({ user, onClose }) => (
         <h2 className={styles.cardTitle} style={{ margin: 0 }}>👤 {user.displayName}</h2>
         <button onClick={onClose} aria-label="Schließen" style={{ border: 'none', background: 'none', fontSize: '1.25rem', cursor: 'pointer' }}>✕</button>
       </div>
+      {user.accountType === 'subscriber' && <Subscription user={user} />}
       <ChangePassword />
       {user.role === 'admin' && <UserAdmin currentUserId={user.id} />}
     </div>

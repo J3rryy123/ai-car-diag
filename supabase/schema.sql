@@ -33,6 +33,19 @@ create table if not exists public.app_users (
 
 alter table public.app_users enable row level security;
 
+-- Abomodell: externe Benutzer registrieren sich selbst (account_type 'subscriber') und bezahlen über Stripe.
+-- Vom Administrator angelegte Konten sind 'staff' und brauchen kein Abo. Der Status wird per Stripe-Webhook gepflegt.
+alter table public.app_users add column if not exists email text;
+alter table public.app_users add column if not exists account_type text not null default 'staff' check (account_type in ('staff', 'subscriber'));
+alter table public.app_users add column if not exists subscription_status text not null default 'none';
+alter table public.app_users add column if not exists stripe_customer_id text;
+alter table public.app_users add column if not exists stripe_subscription_id text;
+alter table public.app_users add column if not exists current_period_end timestamptz;
+alter table public.app_users add column if not exists cancel_at_period_end boolean not null default false;
+alter table public.app_users add column if not exists terms_accepted_at timestamptz;
+create unique index if not exists app_users_email_idx on public.app_users (lower(email)) where email is not null;
+create index if not exists app_users_stripe_customer_idx on public.app_users (stripe_customer_id);
+
 -- Wer hat den Fall angelegt? (Anzeigename zum Zeitpunkt der Erstellung)
 alter table public.cases add column if not exists created_by text not null default '';
 

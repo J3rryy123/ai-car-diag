@@ -28,9 +28,11 @@ export function createFakeDb({ users = [], cases = [] } = {}) {
         state.users.push(user);
         return [user];
       }
-      const username = /username=eq\.([^&]+)/.exec(path)?.[1];
-      const id = /[?&]id=eq\.([^&]+)/.exec(path)?.[1];
-      const matches = state.users.filter((u) => (!username || u.username === username) && (!id || u.id === id));
+      const filters = ['username', 'id', 'email', 'role', 'stripe_customer_id']
+        .map((key) => [key, new RegExp(`[?&]${key}=eq\\.([^&]+)`).exec(path)?.[1]])
+        .filter(([, value]) => value !== undefined)
+        .map(([key, value]) => [key, decodeURIComponent(value)]);
+      const matches = state.users.filter((u) => filters.every(([key, value]) => u[key] === value));
       if (method === 'PATCH') {
         matches.forEach((u) => Object.assign(u, body));
         return matches;
@@ -39,7 +41,7 @@ export function createFakeDb({ users = [], cases = [] } = {}) {
         state.users = state.users.filter((u) => !matches.includes(u));
         return null;
       }
-      return username || id ? matches : state.users;
+      return filters.length ? matches : state.users;
     }
 
     if (path.startsWith('cases')) {

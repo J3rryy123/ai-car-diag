@@ -41,6 +41,24 @@ Sobald die Datenbank konfiguriert ist, melden sich Personen mit **Benutzername +
 
 Rollen: *Administrator* (inkl. Benutzerverwaltung) und *Mitarbeiter*. Mitarbeiter sehen im Diagnoseverlauf nur ihre eigenen Fälle, Administratoren sehen alle (mit Angabe, wer den Fall angelegt hat). Fälle aus der Zeit vor der Benutzerverwaltung sind nur für Administratoren sichtbar. Ohne Datenbank bleibt es beim gemeinsamen Passwort.
 
+## Abomodell (Selbstregistrierung)
+
+Externe Benutzer können sich selbst ein **kostenpflichtiges Konto** anlegen. Bezahlung, Rechnungen und Kündigung laufen über [Stripe](https://stripe.com) (Checkout + Kundenportal); die App speichert keine Zahlungsdaten.
+
+**Einrichtung**
+
+1. `supabase/schema.sql` (erneut) ausführen – ergänzt `app_users` um E-Mail und Abo-Felder.
+2. In Stripe ein **Produkt mit wiederkehrendem Preis** anlegen und die Preis-ID (`price_…`) als `STRIPE_PRICE_ID` setzen. `STRIPE_SECRET_KEY` ist der geheime API-Schlüssel.
+3. Unter *Developers → Webhooks* einen Endpunkt `https://<domain>/api/billing/webhook` anlegen mit den Ereignissen `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`; das Signing-Secret (`whsec_…`) als `STRIPE_WEBHOOK_SECRET` setzen.
+4. Im Stripe-Dashboard unter *Einstellungen → Kundenportal* das Portal aktivieren (Kündigung, Zahlungsmittel).
+5. `APP_URL`, `SUBSCRIPTION_PRICE_LABEL`, `TERMS_URL`, `PRIVACY_URL`, `IMPRINT_URL` setzen und neu deployen. Weitere Optionen: `STRIPE_TRIAL_DAYS`, `STRIPE_AUTOMATIC_TAX`.
+
+**Ablauf**: Auf der Anmeldeseite erscheint „Noch kein Konto? Jetzt registrieren“ → E-Mail, Benutzername, Passwort, Zustimmung → Weiterleitung zu Stripe → nach der Zahlung schaltet der Webhook das Konto frei. Ohne laufendes Abo (`active`, `trialing`, `past_due`) antworten alle Daten-Routen mit 402 und die App zeigt die Bezahlseite. Endet das Abo, ist der Zugang automatisch gesperrt; die Daten bleiben erhalten.
+
+**Konten**: Abonnenten sind immer Rolle *Mitarbeiter* (`account_type = subscriber`) und sehen nur ihre eigenen Fälle – die Daten verschiedener Kunden sind getrennt. Vom Administrator angelegte Konten (`staff`) brauchen kein Abo. In der Benutzerverwaltung sieht der Administrator Abonnenten mit E-Mail und Abo-Status; wird ein Abonnent gelöscht, wird sein Stripe-Abo beendet. Die Registrierung wird erst angeboten, wenn die Ersteinrichtung (erster Administrator) abgeschlossen ist.
+
+**Vor dem Verkauf bitte prüfen** (keine Rechtsberatung): Impressum, Datenschutzerklärung, Nutzungsbedingungen/AGB, Preisangabe inkl. USt., Widerrufsbelehrung bei Verbrauchern, Auftragsverarbeitung mit Anbietern (Stripe, Supabase, Anthropic, Hosting). Die Zustimmung wird mit Zeitstempel in `app_users.terms_accepted_at` gespeichert.
+
 ## Begrenzung von Anfragen
 
 KI-Analyse, Fahrzeugschein-Scan, VIN-Abfrage und Anmeldung sind pro Minute begrenzt (je Benutzer bzw. IP), um die API-Schlüssel vor Missbrauch zu schützen. Mit Datenbank zählt die App **zentral** über die Funktion `rate_limit_hit` (Tabelle `rate_limits`), sodass das Limit auch bei mehreren Vercel-Instanzen gilt. Dafür `supabase/schema.sql` (erneut) ausführen. Ist die Funktion noch nicht eingespielt oder die Datenbank nicht erreichbar, zählt die App im Arbeitsspeicher der jeweiligen Instanz weiter (Hinweis „Zentrale Begrenzung nicht verfügbar“ in den Vercel-Logs).

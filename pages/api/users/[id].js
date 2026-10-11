@@ -1,6 +1,6 @@
 import { requireAuth, hashPassword, passwordProblem, publicUser } from '../../../utils/server/auth';
 import { db, sendDbError } from '../../../utils/server/supabase';
-import { cancelSubscription } from '../../../utils/server/billing';
+import { deleteSubscriberAccount } from '../../../utils/server/accountDeletion';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -38,8 +38,13 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       // Eigenes Konto zu löschen würde ggf. den letzten Administrator entfernen
       if (isSelf) return res.status(400).json({ message: 'Das eigene Konto kann nicht gelöscht werden.' });
-      // Ein laufendes Abo darf nach dem Löschen nicht weiter abgerechnet werden
-      if (target.stripe_subscription_id) await cancelSubscription(target.stripe_subscription_id);
+      // Abonnenten: Abo beenden und ihre Fälle mitlöschen (externe Kundendaten); bei Mitarbeitern bleiben Fälle erhalten
+      if (target.account_type === 'subscriber') {
+        if (!(await deleteSubscriberAccount(target))) {
+          return res.status(502).json({ message: 'Das Abonnement konnte nicht beendet werden, das Konto wurde nicht gelöscht.' });
+        }
+        return res.status(200).json({ ok: true });
+      }
       await db(`app_users?id=eq.${id}`, { method: 'DELETE' });
       return res.status(200).json({ ok: true });
     }

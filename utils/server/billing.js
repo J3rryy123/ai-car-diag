@@ -23,7 +23,12 @@ const trialDays = () => {
   return Number.isInteger(days) && days > 0 && days <= 90 ? days : 0;
 };
 
-export class BillingError extends Error {}
+export class BillingError extends Error {
+  constructor(message, { status } = {}) {
+    super(message);
+    this.status = status;
+  }
+}
 
 // Stripe erwartet verschachtelte Parameter als form-urlencoded (a[b]=1, a[0][b]=2)
 export function encodeParams(params) {
@@ -57,7 +62,7 @@ async function stripe(path, { method = 'POST', params = {} } = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     console.error('Stripe-Fehler:', response.status, data.error?.message);
-    throw new BillingError('Der Zahlungsdienst hat die Anfrage abgelehnt.');
+    throw new BillingError('Der Zahlungsdienst hat die Anfrage abgelehnt.', { status: response.status });
   }
   return data;
 }
@@ -101,13 +106,18 @@ export async function createPortalUrl(user, req) {
   return session.url;
 }
 
-/** Beendet das Abo sofort (z. B. wenn der Administrator das Konto löscht). Fehler werden nur protokolliert. */
+/**
+ * Beendet das Abo sofort (Kontolöschung). Liefert true, wenn danach nichts mehr abgerechnet wird
+ * (auch wenn das Abo bei Stripe schon nicht mehr existiert); Fehler werden protokolliert.
+ */
 export async function cancelSubscription(subscriptionId) {
-  if (!billingConfigured() || !subscriptionId) return false;
+  if (!subscriptionId) return true;
+  if (!billingConfigured()) return false;
   try {
     await stripe(`subscriptions/${encodeURIComponent(subscriptionId)}`, { method: 'DELETE' });
     return true;
   } catch (error) {
+    if (error.status === 404) return true;
     console.error('Abo konnte nicht beendet werden:', subscriptionId, error.message);
     return false;
   }

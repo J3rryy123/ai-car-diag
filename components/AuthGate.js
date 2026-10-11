@@ -157,9 +157,11 @@ const AuthGate = ({ children }) => {
                 Rechnungen &amp; Zahlungsmittel
               </button>
             )}
+            <button className={styles.button} style={{ marginTop: '0.5rem' }} onClick={() => setAccountOpen(true)}>Konto &amp; Daten</button>
             <button className={styles.button} style={{ marginTop: '0.5rem' }} onClick={logout}>Abmelden</button>
           </div>
         </main>
+        {accountOpen && <AccountPanel user={state.user} onClose={() => setAccountOpen(false)} />}
       </div>
     );
   }

@@ -20,6 +20,7 @@ const load = async () => ({
   webhook: (await import('../../pages/api/billing/webhook')).default,
   cases: (await import('../../pages/api/cases/index')).default,
   users: (await import('../../pages/api/users/[id]')).default,
+  account: (await import('../../pages/api/auth/account')).default,
   mod: await import('../../utils/server/auth'),
   billing: await import('../../utils/server/billing'),
 });
@@ -307,6 +308,74 @@ describe('Kundenportal und Löschen', () => {
     expect(res.statusCode).toBe(200);
     expect(stripeCalls.some((c) => c.init.method === 'DELETE' && c.url.endsWith('/subscriptions/sub_9'))).toBe(true);
     expect(subscriber()).toBeUndefined();
+  });
+});
+
+describe('Konto selbst löschen', () => {
+  async function registered() {
+    const api = await load();
+    const res = await call(api.register, { body: signup, ip: uniqueIp() });
+    const user = subscriber();
+    Object.assign(user, { stripe_subscription_id: 'sub_7', subscription_status: 'active' });
+    fake.current.state.cases.push(
+      { id: uuid(), type: 'obd2', created_by_id: user.id, data: {} },
+      { id: uuid(), type: 'obd2', created_by_id: fake.current.state.users[0].id, data: {} }
+    );
+    return { ...api, headers: { cookie: cookieFrom(res) }, user };
+  }
+
+  it('beendet das Abo, löscht Konto und eigene Fälle und meldet ab; fremde Fälle bleiben', async () => {
+    const { account, mod, headers, user } = await registered();
+    const res = await call(account, { method: 'DELETE', headers, body: { password: signup.password }, ip: uniqueIp() });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['set-cookie']).toMatch(/Max-Age=0/);
+    expect(stripeCalls.some((c) => c.init.method === 'DELETE' && c.url.endsWith('/subscriptions/sub_7'))).toBe(true);
+    expect(subscriber()).toBeUndefined();
+    expect(fake.current.state.cases).toHaveLength(1);
+    expect(fake.current.state.cases[0].created_by_id).not.toBe(user.id);
+    expect((await mod.getSession(mockReq({ headers }))).authenticated).toBe(false);
+  });
+
+  it('verlangt das richtige Passwort und eine Anmeldung', async () => {
+    const { account, headers } = await registered();
+    expect((await call(account, { method: 'DELETE', body: {}, ip: uniqueIp() })).statusCode).toBe(401);
+    expect((await call(account, { method: 'DELETE', headers, body: { password: 'falsch-1234' }, ip: uniqueIp() })).statusCode).toBe(401);
+    expect(subscriber()).toBeDefined();
+    expect(fake.current.state.cases).toHaveLength(2);
+  });
+
+  it('löscht nichts, wenn das Abo nicht beendet werden kann (kein Weiterbuchen ohne Konto)', async () => {
+    const { account, headers } = await registered();
+    vi.stubGlobal('fetch', async () => ({ ok: false, status: 500, json: async () => ({ error: { message: 'boom' } }) }));
+    const res = await call(account, { method: 'DELETE', headers, body: { password: signup.password }, ip: uniqueIp() });
+    expect(res.statusCode).toBe(502);
+    expect(subscriber()).toBeDefined();
+    expect(fake.current.state.cases).toHaveLength(2);
+  });
+
+  it('akzeptiert ein bei Stripe schon beendetes Abo und funktioniert auch ohne laufendes Abo', async () => {
+    const { account, headers, user } = await registered();
+    user.subscription_status = 'canceled';
+    vi.stubGlobal('fetch', async () => ({ ok: false, status: 404, json: async () => ({ error: { code: 'resource_missing' } }) }));
+    const res = await call(account, { method: 'DELETE', headers, body: { password: signup.password }, ip: uniqueIp() });
+    expect(res.statusCode).toBe(200);
+    expect(subscriber()).toBeUndefined();
+  });
+
+  it('steht Mitarbeitern und Administratoren nicht offen (Verwaltung durch den Administrator)', async () => {
+    const { account, mod } = await registered();
+    const admin = fake.current.state.users[0];
+    const res = await call(account, { method: 'DELETE', headers: { cookie: mod.sessionCookie(admin).split(';')[0] }, body: { password: 'admin-passwort' }, ip: uniqueIp() });
+    expect(res.statusCode).toBe(403);
+    expect(fake.current.state.users).toContain(admin);
+  });
+
+  it('Administrator löscht einen Abonnenten samt Fällen', async () => {
+    const { users, mod, user } = await registered();
+    const admin = fake.current.state.users[0];
+    const res = await call(users, { method: 'DELETE', headers: { cookie: mod.sessionCookie(admin).split(';')[0] }, query: { id: user.id } });
+    expect(res.statusCode).toBe(200);
+    expect(fake.current.state.cases.every((c) => c.created_by_id !== user.id)).toBe(true);
   });
 });
 

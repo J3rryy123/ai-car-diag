@@ -46,6 +46,51 @@ const ChangePassword = () => {
   );
 };
 
+const DeleteAccount = () => {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const remove = async (event) => {
+    event.preventDefault();
+    if (!window.confirm('Konto, Abonnement und alle Diagnosefälle werden endgültig gelöscht. Fortfahren?')) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api('/api/auth/account', 'DELETE', { password });
+      window.location.reload();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{ justifySelf: 'start', background: 'none', border: 'none', color: '#f87171', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
+        Konto löschen
+      </button>
+    );
+  }
+  return (
+    <form onSubmit={remove}>
+      <h3 style={{ fontWeight: 600, marginBottom: '0.5rem', color: '#f87171' }}>Konto löschen</h3>
+      <p style={{ color: '#9ca3af', marginBottom: '0.5rem' }}>
+        Das Abonnement wird sofort beendet, dein Konto und alle deine Diagnosefälle werden unwiderruflich gelöscht.
+        Rechnungen bleiben bei unserem Zahlungsdienst gesetzlich aufbewahrt.
+      </p>
+      <input className={styles.input} type="password" placeholder="Passwort zur Bestätigung" autoComplete="current-password"
+        value={password} onChange={(e) => setPassword(e.target.value)} />
+      {error && <div className={styles.error} style={{ marginTop: '0.5rem' }}>⚠️ {error}</div>}
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+        <button className={styles.button} type="submit" disabled={!password || busy} style={{ background: '#b91c1c' }}>Endgültig löschen</button>
+        <button className={styles.button} type="button" onClick={() => { setOpen(false); setPassword(''); setError(null); }}>Abbrechen</button>
+      </div>
+    </form>
+  );
+};
+
 const STATUS_LABELS = {
   active: 'Aktiv', trialing: 'Testphase', past_due: 'Zahlung ausstehend', canceled: 'Beendet', unpaid: 'Unbezahlt',
   incomplete: 'Nicht abgeschlossen', incomplete_expired: 'Abgelaufen', paused: 'Pausiert', none: '–'
@@ -137,7 +182,11 @@ const UserAdmin = ({ currentUserId }) => {
   };
 
   const remove = (user) => {
-    if (window.confirm(`Benutzer „${user.username}“ wirklich löschen? Bereits angelegte Fälle bleiben erhalten.`)) {
+    if (window.confirm(
+      user.accountType === 'subscriber'
+        ? `Abonnent „${user.username}“ wirklich löschen? Das Abo wird beendet, alle Fälle werden mitgelöscht.`
+        : `Benutzer „${user.username}“ wirklich löschen? Bereits angelegte Fälle bleiben erhalten.`
+    )) {
       run(() => api(`/api/users/${user.id}`, 'DELETE'));
     }
   };
@@ -207,6 +256,7 @@ const AccountPanel = ({ user, onClose }) => (
       {user.accountType === 'subscriber' && <Subscription user={user} />}
       <ChangePassword />
       {user.role === 'admin' && <UserAdmin currentUserId={user.id} />}
+      {user.accountType === 'subscriber' && <DeleteAccount />}
     </div>
   </div>
 );

@@ -29,6 +29,9 @@ const AuthGate = ({ children }) => {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [panel, setPanel] = useState(null); // 'forgot' | 'reset'
+  const [resetToken, setResetToken] = useState('');
+  const [notice, setNotice] = useState(null);
 
   const loadState = () =>
     fetch('/api/auth')
@@ -63,6 +66,24 @@ const AuthGate = ({ children }) => {
     return () => clearInterval(timer);
   }, []);
 
+  // Links aus E-Mails: ?verify=… (Adresse bestätigen) und ?reset=… (neues Passwort)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const verify = params.get('verify');
+    const reset = params.get('reset');
+    if (!verify && !reset) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    if (reset) {
+      setResetToken(reset);
+      setPanel('reset');
+    } else {
+      post('/api/auth/verify-email', { token: verify })
+        .then(() => setNotice('E-Mail-Adresse bestätigt.'))
+        .catch((err) => setError(err.message))
+        .then(loadState);
+    }
+  }, []);
+
   useEffect(() => {
     if (state.user?.hasAccess) setConfirming(false);
   }, [state.user?.hasAccess]);
@@ -92,11 +113,47 @@ const AuthGate = ({ children }) => {
           window.location.href = result.checkoutUrl;
           return;
         }
+        if (result.verificationRequired && !result.verificationSent) setError('Die Bestätigungs-E-Mail konnte nicht gesendet werden. Bitte unten „E-Mail erneut senden“ wählen.');
       } else if (state.setupRequired) await post('/api/auth/setup', form);
       else await post('/api/auth', state.mode === 'legacy' ? { password: form.password } : form);
       setForm(emptyForm);
       setSignup(false);
       await loadState();
+    } catch (err) {
+      setError(err.message || 'Server nicht erreichbar.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitPanel = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      if (panel === 'forgot') {
+        setNotice((await post('/api/auth/forgot', { email: form.email })).message);
+      } else {
+        await post('/api/auth/reset', { token: resetToken, password: form.password });
+        setForm(emptyForm);
+        setPanel(null);
+        setNotice('Passwort geändert. Bitte melde dich mit dem neuen Passwort an.');
+      }
+    } catch (err) {
+      setError(err.message || 'Server nicht erreichbar.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendVerification = async () => {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await post('/api/auth/resend-verification', {});
+      setNotice('Bestätigungs-E-Mail gesendet. Bitte Postfach (auch Spam) prüfen.');
     } catch (err) {
       setError(err.message || 'Server nicht erreichbar.');
     } finally {
@@ -123,6 +180,30 @@ const AuthGate = ({ children }) => {
             <button className={styles.button} style={{ marginTop: '1rem' }} onClick={loadState}>Erneut versuchen</button>
           </div>
         </main>
+      </div>
+    );
+  }
+
+  // Abo-Konto mit Mail-Dienst: erst die E-Mail-Adresse bestätigen
+  if (state.authenticated && state.user && !state.user.hasAccess && state.mailEnabled && state.user.accountType === 'subscriber' && !state.user.emailVerified) {
+    return (
+      <div className={styles.container}>
+        <main className={styles.main} style={{ maxWidth: '28rem', margin: '4rem auto' }}>
+          <img className={styles.logo} src="/logo.png" alt="Smart Repair Service" style={{ margin: '0 auto 1.5rem' }} />
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>✉️ E-Mail-Adresse bestätigen</h2>
+            <p style={muted}>
+              Wir haben einen Link an <strong>{state.user.email}</strong> gesendet. Nach der Bestätigung geht es zur Bezahlung.
+            </p>
+            {notice && <p style={{ color: '#34d399', marginBottom: '1rem' }}>{notice}</p>}
+            {error && <div className={styles.error}>⚠️ {error}</div>}
+            <button className={styles.button} disabled={busy} onClick={() => { setNotice(null); setError(null); loadState(); }}>Ich habe bestätigt – weiter</button>
+            <button className={styles.button} style={{ marginTop: '0.5rem' }} disabled={busy} onClick={resendVerification}>E-Mail erneut senden</button>
+            <button className={styles.button} style={{ marginTop: '0.5rem' }} onClick={() => setAccountOpen(true)}>Konto &amp; Daten</button>
+            <button className={styles.button} style={{ marginTop: '0.5rem' }} onClick={logout}>Abmelden</button>
+          </div>
+        </main>
+        {accountOpen && <AccountPanel user={state.user} onClose={() => setAccountOpen(false)} />}
       </div>
     );
   }
@@ -171,6 +252,40 @@ const AuthGate = ({ children }) => {
     const users = state.mode === 'users';
     const register = signup && state.signupEnabled && !setup;
     const { billing } = state;
+    if (panel && state.mailEnabled) {
+      return (
+        <div className={styles.container}>
+          <main className={styles.main} style={{ maxWidth: '28rem', margin: '4rem auto' }}>
+            <img className={styles.logo} src="/logo.png" alt="Smart Repair Service" style={{ margin: '0 auto 1.5rem' }} />
+            <form className={styles.card} onSubmit={submitPanel}>
+              <h2 className={styles.cardTitle}>{panel === 'forgot' ? '🔑 Passwort vergessen' : '🔑 Neues Passwort festlegen'}</h2>
+              {panel === 'forgot' ? (
+                <div className={styles.formGroup}>
+                  <label className={styles.label} htmlFor="auth-email">E-Mail-Adresse deines Kontos</label>
+                  <input className={styles.input} id="auth-email" type="email" autoFocus autoComplete="email" autoCapitalize="none"
+                    value={form.email} onChange={set('email')} />
+                </div>
+              ) : (
+                <div className={styles.formGroup}>
+                  <label className={styles.label} htmlFor="auth-password">Neues Passwort (mind. 8 Zeichen)</label>
+                  <input className={styles.input} id="auth-password" type="password" autoFocus autoComplete="new-password"
+                    value={form.password} onChange={set('password')} />
+                </div>
+              )}
+              {notice && <p style={{ color: '#34d399', marginBottom: '1rem' }}>{notice}</p>}
+              {error && <div className={styles.error}>⚠️ {error}</div>}
+              <button className={styles.button} type="submit" disabled={busy || (panel === 'forgot' ? !form.email : !form.password)}>
+                {panel === 'forgot' ? 'Link senden' : 'Passwort speichern'}
+              </button>
+              <button type="button" onClick={() => { setPanel(null); setError(null); setNotice(null); }}
+                style={{ display: 'block', margin: '1rem auto 0', background: 'none', border: 'none', color: '#9ca3af', textDecoration: 'underline', cursor: 'pointer' }}>
+                Zurück zur Anmeldung
+              </button>
+            </form>
+          </main>
+        </div>
+      );
+    }
     return (
       <div className={styles.container}>
         <main className={styles.main} style={{ maxWidth: '28rem', margin: '4rem auto' }}>
@@ -229,11 +344,18 @@ const AuthGate = ({ children }) => {
                 </span>
               </label>
             )}
+            {notice && <p style={{ color: '#34d399', marginBottom: '1rem' }}>{notice}</p>}
             {error && <div className={styles.error}>⚠️ {error}</div>}
             <button className={styles.button} type="submit"
               disabled={busy || !form.password || (users && !form.username) || (register && (!form.email || !form.acceptTerms))}>
               {setup ? 'Administrator anlegen' : register ? 'Weiter zur Zahlung' : 'Anmelden'}
             </button>
+            {state.mailEnabled && users && !setup && !register && (
+              <button type="button" onClick={() => { setPanel('forgot'); setError(null); setNotice(null); }}
+                style={{ display: 'block', margin: '1rem auto 0', background: 'none', border: 'none', color: '#9ca3af', textDecoration: 'underline', cursor: 'pointer' }}>
+                Passwort vergessen?
+              </button>
+            )}
             {state.signupEnabled && !setup && (
               <button type="button" onClick={() => { setSignup(!signup); setError(null); }}
                 style={{ display: 'block', margin: '1rem auto 0', background: 'none', border: 'none', color: '#9ca3af', textDecoration: 'underline', cursor: 'pointer' }}>

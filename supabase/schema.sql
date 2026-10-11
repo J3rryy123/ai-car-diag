@@ -43,6 +43,8 @@ alter table public.app_users add column if not exists stripe_subscription_id tex
 alter table public.app_users add column if not exists current_period_end timestamptz;
 alter table public.app_users add column if not exists cancel_at_period_end boolean not null default false;
 alter table public.app_users add column if not exists terms_accepted_at timestamptz;
+-- E-Mail-Bestätigung (nur mit Mail-Dienst, RESEND_API_KEY): Bezahlung erst nach bestätigter Adresse
+alter table public.app_users add column if not exists email_verified_at timestamptz;
 create unique index if not exists app_users_email_idx on public.app_users (lower(email)) where email is not null;
 create index if not exists app_users_stripe_customer_idx on public.app_users (stripe_customer_id);
 

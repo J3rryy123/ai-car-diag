@@ -2,6 +2,7 @@ import {
   authMode, getSession, passwordMatches, sessionCookie, clearCookie, findUserByName, verifyPassword, publicUser, countUsers
 } from '../../../utils/server/auth';
 import { billingConfigured, billingInfo } from '../../../utils/server/billing';
+import { mailConfigured } from '../../../utils/server/mail';
 import { getUsage } from '../../../utils/server/quota';
 import { sendDbError } from '../../../utils/server/supabase';
 import { createRateLimiter, clientIp } from '../../../utils/server/rateLimit';
@@ -22,6 +23,7 @@ export default async function handler(req, res) {
         setupRequired,
         signupEnabled: billing && !session.authenticated && !setupRequired,
         billing: billing ? billingInfo() : null,
+        mailEnabled: session.mode === 'users' && mailConfigured(),
         user: session.user ? publicUser(session.user) : null,
         usage: session.user ? await getUsage(session.user) : null
       });

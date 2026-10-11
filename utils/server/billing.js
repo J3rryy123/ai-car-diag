@@ -68,7 +68,7 @@ async function stripe(path, { method = 'POST', params = {} } = {}) {
 }
 
 // Basis-Adresse der App für die Rücksprung-URLs (APP_URL, sonst aus der Anfrage)
-function appUrl(req) {
+export function appUrl(req) {
   if (process.env.APP_URL?.trim()) return process.env.APP_URL.trim().replace(/\/+$/, '');
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   const proto = req.headers['x-forwarded-proto'] || (/^localhost|^127\./.test(host || '') ? 'http' : 'https');

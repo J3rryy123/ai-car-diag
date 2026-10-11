@@ -1,9 +1,10 @@
 import {
   authMode, adminExists, hashPassword, passwordProblem, sessionCookie, publicUser,
-  findUserByName, findUserByEmail, USERNAME_PATTERN, EMAIL_PATTERN
+  findUserByName, findUserByEmail, issueToken, USERNAME_PATTERN, EMAIL_PATTERN
 } from '../../../utils/server/auth';
 import { db, sendDbError } from '../../../utils/server/supabase';
 import { billingConfigured, createCheckoutUrl } from '../../../utils/server/billing';
+import { mailConfigured, sendVerificationMail } from '../../../utils/server/mail';
 import { createRateLimiter, clientIp } from '../../../utils/server/rateLimit';
 
 const tooManyAttempts = createRateLimiter('register', 10 * 60 * 1000, 5);
@@ -36,8 +37,12 @@ export default async function handler(req, res) {
     // Ohne Administrator muss zuerst die Ersteinrichtung erfolgen, sonst würde dieses Konto sie blockieren
     if (!(await adminExists())) return res.status(409).json({ message: 'Die Plattform ist noch nicht eingerichtet.' });
     if (await findUserByName(username)) return res.status(409).json({ message: 'Benutzername ist bereits vergeben.' });
-    if (await findUserByEmail(email)) {
-      return res.status(409).json({ message: 'Zu dieser E-Mail-Adresse gibt es bereits ein Konto. Bitte anmelden.' });
+    const existing = await findUserByEmail(email);
+    if (existing) {
+      // Ein nie bestätigtes, unbezahltes Konto darf eine Adresse nicht dauerhaft blockieren (z. B. fremde Anmeldung mit deiner Adresse)
+      const abandoned = mailConfigured() && existing.account_type === 'subscriber' && !existing.email_verified_at && existing.subscription_status === 'incomplete';
+      if (!abandoned) return res.status(409).json({ message: 'Zu dieser E-Mail-Adresse gibt es bereits ein Konto. Bitte anmelden.' });
+      await db(`app_users?id=eq.${existing.id}`, { method: 'DELETE' });
     }
 
     const [user] = await db('app_users', {
@@ -55,6 +60,17 @@ export default async function handler(req, res) {
       prefer: 'return=representation'
     });
     res.setHeader('Set-Cookie', sessionCookie(user));
+
+    // Mit Mail-Dienst muss die Adresse erst bestätigt werden, dann folgt die Bezahlung
+    if (mailConfigured()) {
+      let verificationSent = true;
+      try {
+        await sendVerificationMail(user, issueToken('verify', user, 24 * 3600), req);
+      } catch (error) {
+        verificationSent = false; // Das Konto besteht; „erneut senden“ ist nach der Anmeldung möglich
+      }
+      return res.status(201).json({ ok: true, user: publicUser(user), checkoutUrl: null, verificationRequired: true, verificationSent });
+    }
 
     // Schlägt Stripe fehl, ist das Konto trotzdem angelegt; die Bezahlung lässt sich nach der Anmeldung neu starten
     let checkoutUrl = null;

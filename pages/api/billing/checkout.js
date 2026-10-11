@@ -1,5 +1,6 @@
 import { requireAuth } from '../../../utils/server/auth';
 import { billingConfigured, createCheckoutUrl } from '../../../utils/server/billing';
+import { mailConfigured } from '../../../utils/server/mail';
 import { createRateLimiter, clientIp } from '../../../utils/server/rateLimit';
 
 const tooManyAttempts = createRateLimiter('checkout', 60 * 1000, 10);
@@ -14,6 +15,9 @@ export default async function handler(req, res) {
   if (user?.account_type !== 'subscriber') return res.status(400).json({ message: 'Für dieses Konto ist kein Abonnement nötig.' });
   if (['active', 'trialing', 'past_due'].includes(user.subscription_status)) {
     return res.status(409).json({ message: 'Es besteht bereits ein Abonnement. Verwaltung über „Abo verwalten“.' });
+  }
+  if (mailConfigured() && !user.email_verified_at) {
+    return res.status(403).json({ code: 'email_unverified', message: 'Bitte zuerst die E-Mail-Adresse bestätigen.' });
   }
   if (await tooManyAttempts(user.id || clientIp(req))) return res.status(429).json({ message: 'Zu viele Versuche. Bitte kurz warten.' });
 

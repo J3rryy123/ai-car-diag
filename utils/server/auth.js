@@ -98,6 +98,7 @@ export const publicUser = (u) => ({
   createdAt: u.created_at,
   accountType: u.account_type || 'staff',
   subscriptionStatus: u.subscription_status || 'none',
+  emailVerified: !!u.email_verified_at,
   hasAccess: hasAccess(u),
   currentPeriodEnd: u.current_period_end || null,
   cancelAtPeriodEnd: !!u.cancel_at_period_end
@@ -140,6 +141,37 @@ export function sessionCookie(user) {
 }
 
 export const clearCookie = () => `${COOKIE_NAME}=; ${cookieAttributes()}; Max-Age=0`;
+
+// --- Einmal-Token (E-Mail-Bestätigung, Passwort zurücksetzen) -------------------------------
+// Zustandslos signiert und an den Kontozustand gebunden: ein Reset-Token wird mit der Passwortänderung ungültig
+// (also nur einmal nutzbar), ein Bestätigungs-Token gilt nur für die E-Mail-Adresse, für die er ausgestellt wurde.
+const TOKEN_BINDING = {
+  reset: (user) => fingerprint(user),
+  verify: (user) => sha256(user.email || '').slice(0, 16)
+};
+
+export function issueToken(purpose, user, ttlSeconds) {
+  const payload = `${purpose}.${user.id}.${Math.floor(Date.now() / 1000) + ttlSeconds}`;
+  return `${Buffer.from(payload).toString('base64url')}.${sign(`token:${payload}.${TOKEN_BINDING[purpose](user)}`)}`;
+}
+
+/** Liefert das Konto zu einem gültigen Token (richtiger Zweck, nicht abgelaufen, Konto aktiv) oder null. */
+export async function readToken(token, purpose) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 2 || !parts[0] || !parts[1] || !TOKEN_BINDING[purpose]) return null;
+  const [encoded, signature] = parts;
+  const payload = Buffer.from(encoded, 'base64url').toString();
+  const [kind, userId, expires] = payload.split('.');
+  if (kind !== purpose || !(Number(expires) > Date.now() / 1000)) return null;
+  let user;
+  try {
+    user = await findUserById(userId);
+  } catch {
+    return null;
+  }
+  if (!user || !user.active) return null;
+  return safeEqual(signature, sign(`token:${payload}.${TOKEN_BINDING[purpose](user)}`)) ? user : null;
+}
 
 /** Liefert { mode, authenticated, user } – user ist nur im Modus 'users' gesetzt. */
 export async function getSession(req) {

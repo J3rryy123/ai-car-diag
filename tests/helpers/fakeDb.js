@@ -3,7 +3,7 @@ let seq = 0;
 export const uuid = () => `00000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`;
 
 export function createFakeDb({ users = [], cases = [] } = {}) {
-  const state = { users: [...users], cases: [...cases], calls: [], hits: new Map() };
+  const state = { users: [...users], cases: [...cases], calls: [], hits: new Map(), usage: new Map() };
 
   const filterBy = (rows, path) => {
     const id = /[?&]id=eq\.([^&]+)/.exec(path)?.[1];
@@ -22,15 +22,36 @@ export function createFakeDb({ users = [], cases = [] } = {}) {
       return hits;
     }
 
+    // Monatsgrenze (Funktion usage_add, Tabelle usage_counters)
+    if (path === 'rpc/usage_add') {
+      const key = `${body.p_user}:${body.p_period}`;
+      const current = state.usage.get(key) || 0;
+      if (body.p_delta > 0) {
+        if (current + body.p_delta > body.p_limit) return -1;
+        state.usage.set(key, current + body.p_delta);
+        return current + body.p_delta;
+      }
+      state.usage.set(key, Math.max(current + body.p_delta, 0));
+      return state.usage.get(key);
+    }
+    if (path.startsWith('usage_counters')) {
+      const user = /user_id=eq\.([^&]+)/.exec(path)?.[1];
+      const period = /period=eq\.([^&]+)/.exec(path)?.[1];
+      const hits = state.usage.get(`${user}:${period}`);
+      return hits === undefined ? [] : [{ hits }];
+    }
+
     if (path.startsWith('app_users')) {
       if (method === 'POST') {
         const user = { id: uuid(), active: true, created_at: '2026-01-01T00:00:00Z', ...body };
         state.users.push(user);
         return [user];
       }
-      const username = /username=eq\.([^&]+)/.exec(path)?.[1];
-      const id = /[?&]id=eq\.([^&]+)/.exec(path)?.[1];
-      const matches = state.users.filter((u) => (!username || u.username === username) && (!id || u.id === id));
+      const filters = ['username', 'id', 'email', 'role', 'stripe_customer_id']
+        .map((key) => [key, new RegExp(`[?&]${key}=eq\\.([^&]+)`).exec(path)?.[1]])
+        .filter(([, value]) => value !== undefined)
+        .map(([key, value]) => [key, decodeURIComponent(value)]);
+      const matches = state.users.filter((u) => filters.every(([key, value]) => u[key] === value));
       if (method === 'PATCH') {
         matches.forEach((u) => Object.assign(u, body));
         return matches;
@@ -39,7 +60,7 @@ export function createFakeDb({ users = [], cases = [] } = {}) {
         state.users = state.users.filter((u) => !matches.includes(u));
         return null;
       }
-      return username || id ? matches : state.users;
+      return filters.length ? matches : state.users;
     }
 
     if (path.startsWith('cases')) {

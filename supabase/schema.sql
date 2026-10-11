@@ -33,6 +33,21 @@ create table if not exists public.app_users (
 
 alter table public.app_users enable row level security;
 
+-- Abomodell: externe Benutzer registrieren sich selbst (account_type 'subscriber') und bezahlen über Stripe.
+-- Vom Administrator angelegte Konten sind 'staff' und brauchen kein Abo. Der Status wird per Stripe-Webhook gepflegt.
+alter table public.app_users add column if not exists email text;
+alter table public.app_users add column if not exists account_type text not null default 'staff' check (account_type in ('staff', 'subscriber'));
+alter table public.app_users add column if not exists subscription_status text not null default 'none';
+alter table public.app_users add column if not exists stripe_customer_id text;
+alter table public.app_users add column if not exists stripe_subscription_id text;
+alter table public.app_users add column if not exists current_period_end timestamptz;
+alter table public.app_users add column if not exists cancel_at_period_end boolean not null default false;
+alter table public.app_users add column if not exists terms_accepted_at timestamptz;
+-- E-Mail-Bestätigung (nur mit Mail-Dienst, RESEND_API_KEY): Bezahlung erst nach bestätigter Adresse
+alter table public.app_users add column if not exists email_verified_at timestamptz;
+create unique index if not exists app_users_email_idx on public.app_users (lower(email)) where email is not null;
+create index if not exists app_users_stripe_customer_idx on public.app_users (stripe_customer_id);
+
 -- Wer hat den Fall angelegt? (Anzeigename zum Zeitpunkt der Erstellung)
 alter table public.cases add column if not exists created_by text not null default '';
 
@@ -79,3 +94,43 @@ $$;
 -- Nur die App (Service-Key) darf zählen, nicht der öffentliche Zugriff
 revoke all on function public.rate_limit_hit(text, integer) from public, anon, authenticated;
 grant execute on function public.rate_limit_hit(text, integer) to service_role;
+
+-- Monatsgrenze für KI-Anfragen je Abo-Konto (MONTHLY_ANALYSIS_LIMIT). Zähler je Benutzer und Kalendermonat (UTC).
+create table if not exists public.usage_counters (
+  user_id uuid not null references public.app_users (id) on delete cascade,
+  period text not null,
+  hits integer not null default 0,
+  primary key (user_id, period)
+);
+
+alter table public.usage_counters enable row level security;
+
+-- p_delta > 0: erhöht nur, solange das Limit nicht überschritten wird; liefert den neuen Stand oder -1 (Limit erreicht).
+-- p_delta < 0: gibt eine reservierte Anfrage zurück (nie unter 0).
+create or replace function public.usage_add(p_user uuid, p_period text, p_delta integer, p_limit integer)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_hits integer;
+begin
+  if p_delta > 0 then
+    insert into public.usage_counters as u (user_id, period, hits)
+    values (p_user, p_period, p_delta)
+    on conflict (user_id, period) do update set hits = u.hits + p_delta
+      where u.hits + p_delta <= p_limit
+    returning u.hits into v_hits;
+    return coalesce(v_hits, -1);
+  end if;
+
+  update public.usage_counters set hits = greatest(hits + p_delta, 0)
+  where user_id = p_user and period = p_period
+  returning hits into v_hits;
+  return coalesce(v_hits, 0);
+end;
+$$;
+
+revoke all on function public.usage_add(uuid, text, integer, integer) from public, anon, authenticated;
+grant execute on function public.usage_add(uuid, text, integer, integer) to service_role;

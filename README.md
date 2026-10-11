@@ -41,6 +41,30 @@ Sobald die Datenbank konfiguriert ist, melden sich Personen mit **Benutzername +
 
 Rollen: *Administrator* (inkl. Benutzerverwaltung) und *Mitarbeiter*. Mitarbeiter sehen im Diagnoseverlauf nur ihre eigenen Fälle, Administratoren sehen alle (mit Angabe, wer den Fall angelegt hat). Fälle aus der Zeit vor der Benutzerverwaltung sind nur für Administratoren sichtbar. Ohne Datenbank bleibt es beim gemeinsamen Passwort.
 
+## Abomodell (Selbstregistrierung)
+
+Externe Benutzer können sich selbst ein **kostenpflichtiges Konto** anlegen. Bezahlung, Rechnungen und Kündigung laufen über [Stripe](https://stripe.com) (Checkout + Kundenportal); die App speichert keine Zahlungsdaten.
+
+**Einrichtung**
+
+1. `supabase/schema.sql` (erneut) ausführen – ergänzt `app_users` um E-Mail und Abo-Felder.
+2. In Stripe ein **Produkt mit wiederkehrendem Preis** anlegen und die Preis-ID (`price_…`) als `STRIPE_PRICE_ID` setzen. `STRIPE_SECRET_KEY` ist der geheime API-Schlüssel.
+3. Unter *Developers → Webhooks* einen Endpunkt `https://<domain>/api/billing/webhook` anlegen mit den Ereignissen `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`; das Signing-Secret (`whsec_…`) als `STRIPE_WEBHOOK_SECRET` setzen.
+4. Im Stripe-Dashboard unter *Einstellungen → Kundenportal* das Portal aktivieren (Kündigung, Zahlungsmittel).
+5. `APP_URL`, `SUBSCRIPTION_PRICE_LABEL`, `TERMS_URL`, `PRIVACY_URL`, `IMPRINT_URL` setzen und neu deployen. Weitere Optionen: `STRIPE_TRIAL_DAYS`, `STRIPE_AUTOMATIC_TAX`.
+
+**Ablauf**: Auf der Anmeldeseite erscheint „Noch kein Konto? Jetzt registrieren“ → E-Mail, Benutzername, Passwort, Zustimmung → Weiterleitung zu Stripe → nach der Zahlung schaltet der Webhook das Konto frei. Ohne laufendes Abo (`active`, `trialing`, `past_due`) antworten alle Daten-Routen mit 402 und die App zeigt die Bezahlseite. Endet das Abo, ist der Zugang automatisch gesperrt; die Daten bleiben erhalten.
+
+**Konten**: Abonnenten sind immer Rolle *Mitarbeiter* (`account_type = subscriber`) und sehen nur ihre eigenen Fälle – die Daten verschiedener Kunden sind getrennt. Vom Administrator angelegte Konten (`staff`) brauchen kein Abo. In der Benutzerverwaltung sieht der Administrator Abonnenten mit E-Mail und Abo-Status; wird ein Abonnent gelöscht, wird sein Stripe-Abo beendet. Die Registrierung wird erst angeboten, wenn die Ersteinrichtung (erster Administrator) abgeschlossen ist.
+
+**E-Mail-Bestätigung & Passwort vergessen**: Mit `RESEND_API_KEY` und `MAIL_FROM` (Absender-Domain bei [Resend](https://resend.com) verifizieren) wird der Versand von E-Mails aktiv. Dann gilt: Nach der Registrierung muss die Adresse per Link bestätigt werden, erst danach geht es zur Bezahlung (erneutes Senden ist möglich). Auf der Anmeldeseite erscheint „Passwort vergessen?“; der Link ist 1 Stunde gültig und nur einmal nutzbar, danach sind alle Sitzungen beendet. Die Links sind signiert und zustandslos (keine zusätzliche Tabelle). Die Antwort auf „Passwort vergessen“ ist immer gleich, damit keine registrierten Adressen erkennbar sind. Ein nie bestätigtes, unbezahltes Konto blockiert seine Adresse nicht: eine neue Registrierung ersetzt es. Dafür `supabase/schema.sql` (erneut) ausführen. Ohne Mail-Dienst entfällt beides, alles andere läuft wie bisher. Konten, die der Administrator anlegt (ohne E-Mail-Adresse), setzt weiterhin der Administrator zurück. Bestehende Abonnenten bleiben unverändert freigeschaltet; die Bestätigung betrifft nur den Start der Bezahlung. Resend (USA) wird dadurch Auftragsverarbeiter – in Datenschutzerklärung und AV-Vertrag berücksichtigen.
+
+**Konto löschen**: Abonnenten löschen ihr Konto im Konto-Dialog selbst (Passwort zur Bestätigung, auch ohne laufendes Abo über „Konto & Daten“ auf der Bezahlseite). Das Stripe-Abo wird sofort beendet, danach werden das Konto und alle zugehörigen Diagnosefälle entfernt. Kann das Abo nicht beendet werden, bleibt alles bestehen, damit nicht weiter abgerechnet wird. Rechnungsdaten bleiben bei Stripe (gesetzliche Aufbewahrung) – bitte in der Datenschutzerklärung erwähnen. Löscht der Administrator einen Abonnenten, passiert dasselbe; bei Mitarbeitern bleiben die Fälle erhalten.
+
+**Monatsgrenze**: Mit `MONTHLY_ANALYSIS_LIMIT` (z. B. `200`) ist die Zahl der KI-Anfragen (Analyse und Fahrzeugschein-Scan) pro Abo-Konto und Kalendermonat (UTC) begrenzt, damit die Anthropic-Kosten kalkulierbar bleiben. Danach antwortet die App mit 429 und dem Hinweis auf die Zurücksetzung zum 1. des Monats; der Verbrauch steht im Konto-Dialog. Mitarbeiter und Administratoren sind nie begrenzt, Anfragen ohne echten KI-Aufruf (Demo, Fehler) zählen nicht. Dafür `supabase/schema.sql` (erneut) ausführen; fehlt die Funktion `usage_add`, bleibt der Dienst ohne Grenze erreichbar (Hinweis in den Logs). Leer oder `0` = unbegrenzt.
+
+**Vor dem Verkauf bitte prüfen** (keine Rechtsberatung): Impressum, Datenschutzerklärung, Nutzungsbedingungen/AGB, Preisangabe inkl. USt., Widerrufsbelehrung bei Verbrauchern, Auftragsverarbeitung mit Anbietern (Stripe, Supabase, Anthropic, Hosting). Die Zustimmung wird mit Zeitstempel in `app_users.terms_accepted_at` gespeichert.
+
 ## Begrenzung von Anfragen
 
 KI-Analyse, Fahrzeugschein-Scan, VIN-Abfrage und Anmeldung sind pro Minute begrenzt (je Benutzer bzw. IP), um die API-Schlüssel vor Missbrauch zu schützen. Mit Datenbank zählt die App **zentral** über die Funktion `rate_limit_hit` (Tabelle `rate_limits`), sodass das Limit auch bei mehreren Vercel-Instanzen gilt. Dafür `supabase/schema.sql` (erneut) ausführen. Ist die Funktion noch nicht eingespielt oder die Datenbank nicht erreichbar, zählt die App im Arbeitsspeicher der jeweiligen Instanz weiter (Hinweis „Zentrale Begrenzung nicht verfügbar“ in den Vercel-Logs).

@@ -1,6 +1,9 @@
 import {
   authMode, getSession, passwordMatches, sessionCookie, clearCookie, findUserByName, verifyPassword, publicUser, countUsers
 } from '../../../utils/server/auth';
+import { billingConfigured, billingInfo } from '../../../utils/server/billing';
+import { mailConfigured } from '../../../utils/server/mail';
+import { getUsage } from '../../../utils/server/quota';
 import { sendDbError } from '../../../utils/server/supabase';
 import { createRateLimiter, clientIp } from '../../../utils/server/rateLimit';
 
@@ -11,12 +14,18 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const session = await getSession(req);
       const setupRequired = session.mode === 'users' && !session.authenticated && (await countUsers()) === 0;
+      // Registrierung nur anbieten, wenn Stripe eingerichtet ist und die Ersteinrichtung abgeschlossen wurde
+      const billing = session.mode === 'users' && billingConfigured();
       return res.status(200).json({
         mode: session.mode,
         authRequired: session.mode !== 'open',
         authenticated: session.authenticated,
         setupRequired,
-        user: session.user ? publicUser(session.user) : null
+        signupEnabled: billing && !session.authenticated && !setupRequired,
+        billing: billing ? billingInfo() : null,
+        mailEnabled: session.mode === 'users' && mailConfigured(),
+        user: session.user ? publicUser(session.user) : null,
+        usage: session.user ? await getUsage(session.user) : null
       });
     }
 

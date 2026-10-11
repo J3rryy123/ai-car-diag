@@ -7,7 +7,7 @@ const tooManyAttempts = createRateLimiter('password', 60 * 1000, 5);
 // Eigenes Passwort ändern. Bestehende Sitzungen anderer Geräte werden dadurch ungültig.
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
-  const session = await requireAuth(req, res, { strict: true });
+  const session = await requireAuth(req, res, { strict: true, allowUnpaid: true });
   if (!session) return;
   if (!session.user) return res.status(400).json({ message: 'Nur mit Benutzerkonto möglich.' });
   if (await tooManyAttempts(clientIp(req))) return res.status(429).json({ message: 'Zu viele Versuche. Bitte kurz warten.' });

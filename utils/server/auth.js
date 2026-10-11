@@ -83,14 +83,28 @@ export function passwordProblem(password) {
 }
 
 // --- Benutzer --------------------------------------------------------------
+// Mitarbeiter (vom Administrator angelegt) haben immer Zugriff; Abo-Konten (Selbstregistrierung) nur mit laufendem Abo.
+// „past_due“ (Zahlung fehlgeschlagen) bleibt als Kulanzzeit freigeschaltet, bis Stripe das Abo beendet.
+const ACTIVE_SUBSCRIPTION = ['active', 'trialing', 'past_due'];
+export const hasAccess = (u) => (u.account_type || 'staff') !== 'subscriber' || ACTIVE_SUBSCRIPTION.includes(u.subscription_status);
+
 export const publicUser = (u) => ({
   id: u.id,
   username: u.username,
   displayName: u.display_name || u.username,
+  email: u.email || '',
   role: u.role,
   active: u.active,
-  createdAt: u.created_at
+  createdAt: u.created_at,
+  accountType: u.account_type || 'staff',
+  subscriptionStatus: u.subscription_status || 'none',
+  emailVerified: !!u.email_verified_at,
+  hasAccess: hasAccess(u),
+  currentPeriodEnd: u.current_period_end || null,
+  cancelAtPeriodEnd: !!u.cancel_at_period_end
 });
+
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export async function findUserByName(username) {
   if (!USERNAME_PATTERN.test(username)) return null;
@@ -105,6 +119,13 @@ async function findUserById(id) {
 }
 
 export const countUsers = async () => (await db('app_users?select=id&limit=1')).length;
+export const adminExists = async () => (await db('app_users?role=eq.admin&select=id&limit=1')).length > 0;
+
+export async function findUserByEmail(email) {
+  if (!EMAIL_PATTERN.test(email)) return null;
+  const rows = await db(`app_users?email=eq.${encodeURIComponent(email)}&select=*&limit=1`);
+  return rows[0] || null;
+}
 
 // --- Sitzung ---------------------------------------------------------------
 // Cookie: <Benutzer-ID | legacy>.<Ablauf>.<Signatur>. Die Signatur enthält einen Fingerabdruck des
@@ -120,6 +141,37 @@ export function sessionCookie(user) {
 }
 
 export const clearCookie = () => `${COOKIE_NAME}=; ${cookieAttributes()}; Max-Age=0`;
+
+// --- Einmal-Token (E-Mail-Bestätigung, Passwort zurücksetzen) -------------------------------
+// Zustandslos signiert und an den Kontozustand gebunden: ein Reset-Token wird mit der Passwortänderung ungültig
+// (also nur einmal nutzbar), ein Bestätigungs-Token gilt nur für die E-Mail-Adresse, für die er ausgestellt wurde.
+const TOKEN_BINDING = {
+  reset: (user) => fingerprint(user),
+  verify: (user) => sha256(user.email || '').slice(0, 16)
+};
+
+export function issueToken(purpose, user, ttlSeconds) {
+  const payload = `${purpose}.${user.id}.${Math.floor(Date.now() / 1000) + ttlSeconds}`;
+  return `${Buffer.from(payload).toString('base64url')}.${sign(`token:${payload}.${TOKEN_BINDING[purpose](user)}`)}`;
+}
+
+/** Liefert das Konto zu einem gültigen Token (richtiger Zweck, nicht abgelaufen, Konto aktiv) oder null. */
+export async function readToken(token, purpose) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 2 || !parts[0] || !parts[1] || !TOKEN_BINDING[purpose]) return null;
+  const [encoded, signature] = parts;
+  const payload = Buffer.from(encoded, 'base64url').toString();
+  const [kind, userId, expires] = payload.split('.');
+  if (kind !== purpose || !(Number(expires) > Date.now() / 1000)) return null;
+  let user;
+  try {
+    user = await findUserById(userId);
+  } catch {
+    return null;
+  }
+  if (!user || !user.active) return null;
+  return safeEqual(signature, sign(`token:${payload}.${TOKEN_BINDING[purpose](user)}`)) ? user : null;
+}
 
 /** Liefert { mode, authenticated, user } – user ist nur im Modus 'users' gesetzt. */
 export async function getSession(req) {
@@ -149,9 +201,10 @@ export async function getSession(req) {
 /**
  * Prüft den Zugriff. Antwortet bei Ablehnung selbst und liefert die Sitzung bzw. null zurück.
  * Ohne Passwort/Datenbank ist die App offen (nur lokal/Demo); `strict` verlangt in Produktion zwingend einen Schutz.
- * `admin` verlangt zusätzlich die Rolle „admin“.
+ * `admin` verlangt zusätzlich die Rolle „admin“. Abo-Konten ohne laufendes Abo werden mit 402 abgewiesen,
+ * außer die Route setzt `allowUnpaid` (Anmeldestatus, Passwort, Bezahlvorgang).
  */
-export async function requireAuth(req, res, { strict = false, admin = false } = {}) {
+export async function requireAuth(req, res, { strict = false, admin = false, allowUnpaid = false } = {}) {
   const session = await getSession(req);
   if (session.mode === 'open') {
     if ((strict || admin) && process.env.NODE_ENV === 'production') {
@@ -170,6 +223,10 @@ export async function requireAuth(req, res, { strict = false, admin = false } = 
   }
   if (admin && session.user?.role !== 'admin') {
     res.status(403).json({ message: 'Nur für Administratoren.' });
+    return null;
+  }
+  if (!allowUnpaid && session.user && !hasAccess(session.user)) {
+    res.status(402).json({ code: 'subscription_required', message: 'Für dieses Konto ist kein aktives Abonnement vorhanden.' });
     return null;
   }
   return session;

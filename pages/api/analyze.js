@@ -3,6 +3,7 @@ import { callClaude } from '../../utils/server/claude';
 import { clientIp, createRateLimiter } from '../../utils/server/rateLimit';
 import { db, dbConfigured } from '../../utils/server/supabase';
 import { ownOnly } from '../../utils/server/caseMapping';
+import { reserveRequest, releaseRequest, quotaExceeded } from '../../utils/server/quota';
 
 // Claude kann länger brauchen als das Standard-Zeitlimit von Vercel
 export const config = { maxDuration: 60 };
@@ -368,7 +369,7 @@ export default async function handler(req, res) {
     const obdVinDecoded = obdVin ? body.obdVinDecoded : null;
     const registration = cleanRegistration(body.registration, obdVin);
 
-    return respond(res, debug, debugAllowed, {
+    return respond(res, debug, debugAllowed, session, {
       tool: OBD_TOOL,
       suffix: '-obd2',
       prompt: buildObdPrompt(obdCode, codeInfo, obdVin, obdVinDecoded, registration, await loadVehicleHistory(obdVin, session)),
@@ -392,7 +393,7 @@ export default async function handler(req, res) {
   const vinDecoded = vin ? body.vinDecoded : null;
   const registration = cleanRegistration(body.carDetails?.registration, vin);
 
-  return respond(res, debug, debugAllowed, {
+  return respond(res, debug, debugAllowed, session, {
     tool: DIAGNOSE_TOOL,
     suffix: '',
     prompt: buildDiagnosePrompt(problem, carDetails, vin, vinDecoded, registration, await loadVehicleHistory(vin, session)),
@@ -402,7 +403,10 @@ export default async function handler(req, res) {
   });
 }
 
-async function respond(res, debug, debugAllowed, { tool, suffix, prompt, fallback, demo, demoMode }) {
+async function respond(res, debug, debugAllowed, session, { tool, suffix, prompt, fallback, demo, demoMode }) {
+  // Monatsgrenze nur für Abo-Konten; ohne echten KI-Aufruf (Demo, Fehler) wird die Anfrage zurückgegeben
+  const reservation = await reserveRequest(session.user);
+  if (!reservation.allowed) return quotaExceeded(res, reservation);
   const reply = ({ debug: details, modelUsed, ...rest }) =>
     res.status(200).json({
       ...rest,
@@ -414,6 +418,7 @@ async function respond(res, debug, debugAllowed, { tool, suffix, prompt, fallbac
     if (result?.analysis) {
       return reply({ ...result, debug, timestamp: new Date().toISOString() });
     }
+    await releaseRequest(session.user, reservation);
     return reply({
       analysis: demo(),
       demo: true,
@@ -426,6 +431,7 @@ async function respond(res, debug, debugAllowed, { tool, suffix, prompt, fallbac
     });
   } catch (error) {
     console.error('Analysis error:', error);
+    await releaseRequest(session.user, reservation);
     return reply({
       analysis: demo(),
       demo: true,

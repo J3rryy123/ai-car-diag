@@ -54,7 +54,13 @@ const STATUS_LABELS = {
 const Subscription = ({ user }) => {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [usage, setUsage] = useState(null);
   const until = user.currentPeriodEnd && new Date(user.currentPeriodEnd).toLocaleDateString('de-DE');
+
+  // Aktuellen Verbrauch beim Öffnen laden (der Anmeldestatus der Seite kann veraltet sein)
+  useEffect(() => {
+    api('/api/auth', 'GET').then((data) => setUsage(data.usage)).catch(() => {});
+  }, []);
 
   const manage = async () => {
     setBusy(true);
@@ -74,6 +80,12 @@ const Subscription = ({ user }) => {
       {until && (
         <p style={{ color: '#9ca3af' }}>
           {user.cancelAtPeriodEnd ? `Gekündigt – Zugang bis ${until}` : `Nächste Verlängerung: ${until}`}
+        </p>
+      )}
+      {usage && (
+        <p style={{ marginTop: '0.5rem' }}>
+          KI-Anfragen in diesem Monat: <strong>{usage.used} / {usage.limit}</strong>
+          <span style={{ color: '#9ca3af' }}> · Zurücksetzung am {new Date(usage.resetsAt).toLocaleDateString('de-DE')}</span>
         </p>
       )}
       {error && <div className={styles.error} style={{ marginTop: '0.5rem' }}>⚠️ {error}</div>}

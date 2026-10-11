@@ -92,3 +92,43 @@ $$;
 -- Nur die App (Service-Key) darf zählen, nicht der öffentliche Zugriff
 revoke all on function public.rate_limit_hit(text, integer) from public, anon, authenticated;
 grant execute on function public.rate_limit_hit(text, integer) to service_role;
+
+-- Monatsgrenze für KI-Anfragen je Abo-Konto (MONTHLY_ANALYSIS_LIMIT). Zähler je Benutzer und Kalendermonat (UTC).
+create table if not exists public.usage_counters (
+  user_id uuid not null references public.app_users (id) on delete cascade,
+  period text not null,
+  hits integer not null default 0,
+  primary key (user_id, period)
+);
+
+alter table public.usage_counters enable row level security;
+
+-- p_delta > 0: erhöht nur, solange das Limit nicht überschritten wird; liefert den neuen Stand oder -1 (Limit erreicht).
+-- p_delta < 0: gibt eine reservierte Anfrage zurück (nie unter 0).
+create or replace function public.usage_add(p_user uuid, p_period text, p_delta integer, p_limit integer)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_hits integer;
+begin
+  if p_delta > 0 then
+    insert into public.usage_counters as u (user_id, period, hits)
+    values (p_user, p_period, p_delta)
+    on conflict (user_id, period) do update set hits = u.hits + p_delta
+      where u.hits + p_delta <= p_limit
+    returning u.hits into v_hits;
+    return coalesce(v_hits, -1);
+  end if;
+
+  update public.usage_counters set hits = greatest(hits + p_delta, 0)
+  where user_id = p_user and period = p_period
+  returning hits into v_hits;
+  return coalesce(v_hits, 0);
+end;
+$$;
+
+revoke all on function public.usage_add(uuid, text, integer, integer) from public, anon, authenticated;
+grant execute on function public.usage_add(uuid, text, integer, integer) to service_role;

@@ -57,6 +57,8 @@ Externe Benutzer können sich selbst ein **kostenpflichtiges Konto** anlegen. Be
 
 **Konten**: Abonnenten sind immer Rolle *Mitarbeiter* (`account_type = subscriber`) und sehen nur ihre eigenen Fälle – die Daten verschiedener Kunden sind getrennt. Vom Administrator angelegte Konten (`staff`) brauchen kein Abo. In der Benutzerverwaltung sieht der Administrator Abonnenten mit E-Mail und Abo-Status; wird ein Abonnent gelöscht, wird sein Stripe-Abo beendet. Die Registrierung wird erst angeboten, wenn die Ersteinrichtung (erster Administrator) abgeschlossen ist.
 
+**Monatsgrenze**: Mit `MONTHLY_ANALYSIS_LIMIT` (z. B. `200`) ist die Zahl der KI-Anfragen (Analyse und Fahrzeugschein-Scan) pro Abo-Konto und Kalendermonat (UTC) begrenzt, damit die Anthropic-Kosten kalkulierbar bleiben. Danach antwortet die App mit 429 und dem Hinweis auf die Zurücksetzung zum 1. des Monats; der Verbrauch steht im Konto-Dialog. Mitarbeiter und Administratoren sind nie begrenzt, Anfragen ohne echten KI-Aufruf (Demo, Fehler) zählen nicht. Dafür `supabase/schema.sql` (erneut) ausführen; fehlt die Funktion `usage_add`, bleibt der Dienst ohne Grenze erreichbar (Hinweis in den Logs). Leer oder `0` = unbegrenzt.
+
 **Vor dem Verkauf bitte prüfen** (keine Rechtsberatung): Impressum, Datenschutzerklärung, Nutzungsbedingungen/AGB, Preisangabe inkl. USt., Widerrufsbelehrung bei Verbrauchern, Auftragsverarbeitung mit Anbietern (Stripe, Supabase, Anthropic, Hosting). Die Zustimmung wird mit Zeitstempel in `app_users.terms_accepted_at` gespeichert.
 
 ## Begrenzung von Anfragen

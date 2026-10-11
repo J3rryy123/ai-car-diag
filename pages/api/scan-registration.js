@@ -1,6 +1,7 @@
 import { requireAuth } from '../../utils/server/auth';
 import { callClaude } from '../../utils/server/claude';
 import { clientIp, createRateLimiter } from '../../utils/server/rateLimit';
+import { reserveRequest, releaseRequest, quotaExceeded } from '../../utils/server/quota';
 import { REGISTRATION_PROMPT, REGISTRATION_TOOL, normalizeRegistration } from '../../utils/server/registrationParse';
 
 // Fotos werden im Browser verkleinert; Vercel erlaubt höchstens 4,5 MB pro Anfrage
@@ -32,6 +33,9 @@ export default async function handler(req, res) {
     return res.status(413).json({ message: 'Das Foto ist zu groß.' });
   }
 
+  const reservation = await reserveRequest(session.user);
+  if (!reservation.allowed) return quotaExceeded(res, reservation);
+
   try {
     const { toolInput } = await callClaude(
       [
@@ -51,6 +55,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ fields, warnings });
   } catch (error) {
     console.error('Registration scan error:', error.message);
+    await releaseRequest(session.user, reservation);
     return res.status(502).json({ message: `Fahrzeugschein konnte nicht ausgewertet werden (${error.message}).` });
   }
 }

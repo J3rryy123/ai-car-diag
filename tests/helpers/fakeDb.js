@@ -3,7 +3,7 @@ let seq = 0;
 export const uuid = () => `00000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`;
 
 export function createFakeDb({ users = [], cases = [] } = {}) {
-  const state = { users: [...users], cases: [...cases], calls: [], hits: new Map() };
+  const state = { users: [...users], cases: [...cases], calls: [], hits: new Map(), usage: new Map() };
 
   const filterBy = (rows, path) => {
     const id = /[?&]id=eq\.([^&]+)/.exec(path)?.[1];
@@ -20,6 +20,25 @@ export function createFakeDb({ users = [], cases = [] } = {}) {
       const hits = (state.hits.get(body.p_key) || 0) + 1;
       state.hits.set(body.p_key, hits);
       return hits;
+    }
+
+    // Monatsgrenze (Funktion usage_add, Tabelle usage_counters)
+    if (path === 'rpc/usage_add') {
+      const key = `${body.p_user}:${body.p_period}`;
+      const current = state.usage.get(key) || 0;
+      if (body.p_delta > 0) {
+        if (current + body.p_delta > body.p_limit) return -1;
+        state.usage.set(key, current + body.p_delta);
+        return current + body.p_delta;
+      }
+      state.usage.set(key, Math.max(current + body.p_delta, 0));
+      return state.usage.get(key);
+    }
+    if (path.startsWith('usage_counters')) {
+      const user = /user_id=eq\.([^&]+)/.exec(path)?.[1];
+      const period = /period=eq\.([^&]+)/.exec(path)?.[1];
+      const hits = state.usage.get(`${user}:${period}`);
+      return hits === undefined ? [] : [{ hits }];
     }
 
     if (path.startsWith('app_users')) {

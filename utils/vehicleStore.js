@@ -42,6 +42,17 @@ async function request(path, options) {
   return { data };
 }
 
+/** Modell-/Motordaten aus der VIN-Auswertung zum Speichern (null, wenn nichts Brauchbares vorliegt). */
+export function pickVinData(decoded) {
+  if (!decoded?.isValid) return null;
+  const data = {};
+  if (decoded.model?.series) data.model = { series: decoded.model.series };
+  if (decoded.engine) data.engine = decoded.engine;
+  if (decoded.body) data.body = decoded.body;
+  if (decoded.dataSource) data.dataSource = decoded.dataSource;
+  return Object.keys(data).length ? data : null;
+}
+
 /** Alle gespeicherten Fahrzeuge, zuletzt geänderte zuerst: { vehicles, storage: 'database' | 'local' } */
 export async function loadVehicles() {
   const { fallback, data } = await request('/api/vehicles');

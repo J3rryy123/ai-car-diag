@@ -10,6 +10,7 @@ import PrintReport from './PrintReport';
 import VehicleHistory from './VehicleHistory';
 import SavedVehicles from './SavedVehicles';
 import { addCase } from '../utils/caseHistory';
+import { pickVinData } from '../utils/vehicleStore';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
 const NAV_ITEMS = [
@@ -428,12 +429,15 @@ const KFZDiagnosePlatform = () => {
 
   // Gespeichertes Fahrzeug (Fahrzeugspeicher) ins Formular übernehmen; die gespeicherten Daten gelten, kein erneutes Nachladen
   const loadSavedVehicle = (v, target) => {
+    const restore = (decoded) => (v.vinData ? { ...decoded, ...v.vinData, lookup: 'done' } : decoded);
     if (target === 'obd') {
       handleObdVinChange(v.vin);
       setObdRegistration(v.registration || null);
+      if (v.vinData) setObdVinDecoded(prev => (prev?.isValid ? restore(prev) : prev));
       return;
     }
     handleVinChange(v.vin, { keepForm: true });
+    if (v.vinData) setVinDecoded(prev => (prev?.isValid ? restore(prev) : prev));
     setCarDetails(prev => ({
       ...prev,
       make: v.make,
@@ -794,7 +798,8 @@ const KFZDiagnosePlatform = () => {
                       model: carDetails.model,
                       year: carDetails.year,
                       engineType: carDetails.engineType,
-                      registration: carDetails.registration || null
+                      registration: carDetails.registration || null,
+                      vinData: pickVinData(vinDecoded)
                     }}
                     onLoad={(v) => loadSavedVehicle(v, 'diagnose')}
                     styles={styles}
@@ -951,8 +956,9 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
                       make: obdRegistration?.make || obdVinDecoded?.manufacturer?.name || '',
                       model: obdRegistration?.model || obdVinDecoded?.model?.series || '',
                       year: obdRegistration?.firstRegistration?.slice(0, 4) || obdVinDecoded?.year?.modelYear || '',
-                      engineType: '',
-                      registration: obdRegistration || null
+                      engineType: FORM_FUELS[obdVinDecoded?.engine?.fuelType] || '',
+                      registration: obdRegistration || null,
+                      vinData: pickVinData(obdVinDecoded)
                     }}
                     onLoad={(v) => loadSavedVehicle(v, 'obd')}
                     styles={styles}

@@ -19,7 +19,10 @@ export function toRow(v) {
   if (!VIN_PATTERN.test(vin)) return null;
   const registration = v.registration && typeof v.registration === 'object' && !Array.isArray(v.registration) ? v.registration : null;
   if (registration && JSON.stringify(registration).length > MAX_DATA_BYTES) return null;
-  const row = { vin, data: registration ? { registration } : {} };
+  // Aus der VIN ermittelte Modell-/Motordaten (Datenbankabfrage), damit sie nicht erneut abgefragt werden müssen
+  const vinData = v.vinData && typeof v.vinData === 'object' && !Array.isArray(v.vinData) ? v.vinData : null;
+  if (vinData && JSON.stringify(vinData).length > MAX_DATA_BYTES) return null;
+  const row = { vin, data: { ...(registration && { registration }), ...(vinData && { vinData }) } };
   for (const [key, [column, max]] of Object.entries(FIELDS)) row[column] = clip(typeof v[key] === 'number' ? String(v[key]) : v[key], max);
   if (row.license_plate) row.license_plate = row.license_plate.toUpperCase();
   return row;
@@ -47,6 +50,7 @@ export function fromRow(row) {
     customer: row.customer || '',
     note: row.note || '',
     registration: row.data?.registration || null,
+    vinData: row.data?.vinData || null,
     createdBy: row.created_by || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at || row.created_at

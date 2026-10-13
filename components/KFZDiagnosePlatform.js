@@ -8,6 +8,7 @@ import GuidedDiagnosis from './GuidedDiagnosis';
 import MultiCodeAnalysis from './MultiCodeAnalysis';
 import PrintReport from './PrintReport';
 import VehicleHistory from './VehicleHistory';
+import SavedVehicles from './SavedVehicles';
 import { addCase } from '../utils/caseHistory';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
@@ -425,6 +426,24 @@ const KFZDiagnosePlatform = () => {
     }
   };
 
+  // Gespeichertes Fahrzeug (Fahrzeugspeicher) ins Formular übernehmen; die gespeicherten Daten gelten, kein erneutes Nachladen
+  const loadSavedVehicle = (v, target) => {
+    if (target === 'obd') {
+      handleObdVinChange(v.vin);
+      setObdRegistration(v.registration || null);
+      return;
+    }
+    handleVinChange(v.vin, { keepForm: true });
+    setCarDetails(prev => ({
+      ...prev,
+      make: v.make,
+      model: v.model,
+      year: v.year,
+      engineType: v.engineType,
+      ...(v.registration ? { registration: v.registration } : (({ registration, ...rest }) => rest)(prev))
+    }));
+  };
+
   // Tab wechseln; Geführte Suche und Mehrfach-Codes starten dabei leer
   const openTab = (id) => {
     if (id === 'multi' && activeTab !== 'multi') { setMultiCase(null); setMultiKey(k => k + 1); }
@@ -768,6 +787,18 @@ const KFZDiagnosePlatform = () => {
                   />
                   
                   <VinInfo decoded={vinDecoded} styles={styles} />
+                  <SavedVehicles
+                    current={{
+                      vin: VIN_DECODER.cleanVIN(vin),
+                      make: carDetails.make,
+                      model: carDetails.model,
+                      year: carDetails.year,
+                      engineType: carDetails.engineType,
+                      registration: carDetails.registration || null
+                    }}
+                    onLoad={(v) => loadSavedVehicle(v, 'diagnose')}
+                    styles={styles}
+                  />
                   <VehicleHistory vin={vinDecoded?.isValid ? vinDecoded.vin : ''} refreshKey={historyVersion} onOpen={openCase} styles={styles} />
                 </div>
 
@@ -914,6 +945,18 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
                   />
                   
                   <VinInfo decoded={obdVinDecoded} styles={styles} />
+                  <SavedVehicles
+                    current={{
+                      vin: VIN_DECODER.cleanVIN(obdVin),
+                      make: obdRegistration?.make || obdVinDecoded?.manufacturer?.name || '',
+                      model: obdRegistration?.model || obdVinDecoded?.model?.series || '',
+                      year: obdRegistration?.firstRegistration?.slice(0, 4) || obdVinDecoded?.year?.modelYear || '',
+                      engineType: '',
+                      registration: obdRegistration || null
+                    }}
+                    onLoad={(v) => loadSavedVehicle(v, 'obd')}
+                    styles={styles}
+                  />
                   <VehicleHistory vin={obdVinDecoded?.isValid ? obdVinDecoded.vin : ''} refreshKey={historyVersion} onOpen={openCase} styles={styles} />
                 </div>
 

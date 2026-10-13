@@ -41,6 +41,15 @@ Sobald die Datenbank konfiguriert ist, melden sich Personen mit **Benutzername +
 
 Rollen: *Administrator* (inkl. Benutzerverwaltung) und *Mitarbeiter*. Mitarbeiter sehen im Diagnoseverlauf nur ihre eigenen Fälle, Administratoren sehen alle (mit Angabe, wer den Fall angelegt hat). Fälle aus der Zeit vor der Benutzerverwaltung sind nur für Administratoren sichtbar. Ohne Datenbank bleibt es beim gemeinsamen Passwort.
 
+## Fahrzeugspeicher (VIN & Fahrzeugdaten)
+
+Fahrgestellnummer und Fahrzeugdaten (Marke, Modell, Baujahr, Motortyp, Kennzeichen, Kunde und – falls gescannt – die Fahrzeugschein-Daten) lassen sich in der Datenbank ablegen und später schnell wieder aufrufen.
+
+- **Speichern**: Sobald im Diagnose- oder OBD2-Tab eine gültige 17-stellige VIN eingegeben ist, erscheint unter dem VIN-Feld „Fahrzeug speichern“ (optional mit Kennzeichen und Kunde). Erneutes Speichern derselben VIN aktualisiert den vorhandenen Eintrag, es entstehen keine Duplikate.
+- **Abrufen**: „Gespeicherte Fahrzeuge“ unter dem VIN-Feld mit Suche nach VIN, Kennzeichen, Kunde, Marke oder Modell. „Übernehmen“ füllt das Formular (inkl. Fahrzeugschein-Daten) ohne erneute Abfrage; ist die VIN bereits gespeichert, bietet die App das direkt an.
+- **Sichtbarkeit**: wie bei den Fällen – Mitarbeiter und Abonnenten sehen nur eigene Fahrzeuge, Administratoren alle. Beim Löschen eines Abo-Kontos werden dessen Fahrzeuge mit entfernt.
+- **Technik**: Tabelle `vehicles` (eindeutig je Benutzer und VIN), API `GET/POST /api/vehicles`, `PATCH/DELETE /api/vehicles/<id>`. Dafür `supabase/schema.sql` (erneut) ausführen. Ohne Datenbank speichert die App im Browser (nur dieses Gerät).
+
 ## Abomodell (Selbstregistrierung)
 
 Externe Benutzer können sich selbst ein **kostenpflichtiges Konto** anlegen. Bezahlung, Rechnungen und Kündigung laufen über [Stripe](https://stripe.com) (Checkout + Kundenportal); die App speichert keine Zahlungsdaten.

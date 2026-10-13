@@ -2,14 +2,17 @@
 let seq = 0;
 export const uuid = () => `00000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`;
 
-export function createFakeDb({ users = [], cases = [] } = {}) {
-  const state = { users: [...users], cases: [...cases], calls: [], hits: new Map(), usage: new Map() };
+export function createFakeDb({ users = [], cases = [], vehicles = [] } = {}) {
+  const state = { users: [...users], cases: [...cases], vehicles: [...vehicles], calls: [], hits: new Map(), usage: new Map() };
 
   const filterBy = (rows, path) => {
     const id = /[?&]id=eq\.([^&]+)/.exec(path)?.[1];
     const owner = /[&?]created_by_id=eq\.([^&]+)/.exec(path)?.[1];
+    const noOwner = /[&?]created_by_id=is\.null/.test(path);
     const vin = /[&?]vin=eq\.([^&]+)/.exec(path)?.[1];
-    return rows.filter((r) => (!id || r.id === id) && (!owner || r.created_by_id === owner) && (!vin || r.vin === vin));
+    return rows.filter(
+      (r) => (!id || r.id === id) && (!owner || r.created_by_id === owner) && (!noOwner || !r.created_by_id) && (!vin || r.vin === vin)
+    );
   };
 
   const db = async (path, { method = 'GET', body } = {}) => {
@@ -63,16 +66,17 @@ export function createFakeDb({ users = [], cases = [] } = {}) {
       return filters.length ? matches : state.users;
     }
 
-    if (path.startsWith('cases')) {
+    const table = /^(cases|vehicles)/.exec(path)?.[1];
+    if (table) {
       if (method === 'POST') {
         const created = body.map((row) => ({ id: uuid(), created_at: '2026-01-01T00:00:00Z', ...row }));
-        state.cases.push(...created);
+        state[table].push(...created);
         return created;
       }
-      let matches = filterBy(state.cases, path);
+      let matches = filterBy(state[table], path);
       if (method === 'GET') {
         // neueste zuerst und Begrenzung, wie bei PostgREST (order=created_at.desc&limit=n)
-        matches = [...matches].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+        matches = [...matches].sort((a, b) => String(b.updated_at || b.created_at).localeCompare(String(a.updated_at || a.created_at)));
         const limit = Number(/[&?]limit=(\d+)/.exec(path)?.[1]);
         if (limit) matches = matches.slice(0, limit);
       }
@@ -81,7 +85,7 @@ export function createFakeDb({ users = [], cases = [] } = {}) {
         return matches;
       }
       if (method === 'DELETE') {
-        state.cases = state.cases.filter((c) => !matches.includes(c));
+        state[table] = state[table].filter((c) => !matches.includes(c));
         return matches;
       }
       return matches;

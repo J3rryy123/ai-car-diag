@@ -134,3 +134,28 @@ $$;
 
 revoke all on function public.usage_add(uuid, text, integer, integer) from public, anon, authenticated;
 grant execute on function public.usage_add(uuid, text, integer, integer) to service_role;
+
+-- Fahrzeugspeicher: Fahrgestellnummer (VIN) und Fahrzeugdaten zum schnellen Wiederabruf.
+-- Pro Benutzer ist eine VIN nur einmal vorhanden (erneutes Speichern aktualisiert den Eintrag).
+create table if not exists public.vehicles (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  vin text not null check (vin ~ '^[A-HJ-NPR-Z0-9]{17}$'),
+  make text not null default '',
+  model text not null default '',
+  year text not null default '',
+  engine_type text not null default '',
+  license_plate text not null default '',
+  customer text not null default '',
+  note text not null default '',
+  data jsonb not null default '{}'::jsonb,
+  created_by text not null default '',
+  created_by_id uuid references public.app_users (id) on delete set null
+);
+
+create unique index if not exists vehicles_owner_vin_idx on public.vehicles (created_by_id, vin);
+create index if not exists vehicles_vin_idx on public.vehicles (vin);
+create index if not exists vehicles_updated_at_idx on public.vehicles (updated_at desc);
+
+alter table public.vehicles enable row level security;

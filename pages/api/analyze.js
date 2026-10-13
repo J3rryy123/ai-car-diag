@@ -144,7 +144,11 @@ function describeEngine(decoded) {
       .map((v) => clean(String(v)));
     if (parts.length) lines.push(`- Engine: ${parts.join(', ')}`);
   }
-  return lines.length ? `${lines.join('\n')}\n` : '';
+  if (!lines.length) return '';
+  // Database values are a best guess (coverage of European vehicles is patchy), so the model must not
+  // let them override what the user entered or what the registration document says.
+  lines.push('- Note: model/engine above come from an external VIN database and are not confirmed. If they conflict with the vehicle details entered by the user or with the registration document data, trust the user and the registration document.');
+  return `${lines.join('\n')}\n`;
 }
 
 // Technische Daten aus dem Fahrzeugschein (vom Client gesendet): nur geprüfte Zahlen/Kurztexte übernehmen

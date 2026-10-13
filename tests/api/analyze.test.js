@@ -179,6 +179,38 @@ describe('Fahrzeugschein-Daten im Prompt', () => {
   });
 });
 
+describe('VIN database data in the prompt', () => {
+  const VIN = 'WVWZZZ1KZ6W612345';
+  const decoded = (extra = {}) => ({
+    isValid: true,
+    vin: VIN,
+    manufacturer: { name: 'Volkswagen', country: 'Deutschland' },
+    year: { modelYear: 2006, confidence: 'estimated' },
+    ...extra,
+  });
+
+  it('marks model and engine from the database as unconfirmed', async () => {
+    const vinDecoded = decoded({ model: { series: 'Golf V' }, engine: { displacement: '1.9L', fuelType: 'Diesel' } });
+    await call(handler, { body: diagnose({ vin: VIN, vinDecoded }), ip: uniqueIp() });
+    expect(lastPrompt()).toContain('Golf V');
+    expect(lastPrompt()).toContain('1.9L');
+    expect(lastPrompt()).toMatch(/not confirmed.*trust the user and the registration document/);
+  });
+
+  it('adds no note when the database delivered no model or engine', async () => {
+    await call(handler, { body: diagnose({ vin: VIN, vinDecoded: decoded({ model: { series: null }, engine: null }) }), ip: uniqueIp() });
+    expect(lastPrompt()).toContain('Volkswagen');
+    expect(lastPrompt()).not.toContain('not confirmed');
+  });
+
+  it('also marks them in the OBD2 prompt', async () => {
+    const vinDecoded = decoded({ model: { series: 'Golf V' } });
+    await call(handler, { body: { type: 'obd2', obdCode: 'P0171', codeInfo: { description: 'System too lean' }, obdVin: VIN, obdVinDecoded: vinDecoded }, ip: uniqueIp() });
+    expect(lastPrompt()).toContain('Golf V');
+    expect(lastPrompt()).toContain('not confirmed');
+  });
+});
+
 describe('Anfragebegrenzung', () => {
   it('erlaubt 20 Anfragen pro Minute je Benutzer, danach 429; andere Benutzer bleiben frei', async () => {
     mocks.requireAuth.mockResolvedValue(user('limit-user'));

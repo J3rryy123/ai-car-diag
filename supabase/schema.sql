@@ -134,3 +134,17 @@ $$;
 
 revoke all on function public.usage_add(uuid, text, integer, integer) from public, anon, authenticated;
 grant execute on function public.usage_add(uuid, text, integer, integer) to service_role;
+
+-- Cache for vehicle data looked up by VIN (external database such as NHTSA vPIC).
+-- Holds only the VIN and public vehicle data, no link to a user or a case. Written by the app via the service key.
+create table if not exists public.vin_cache (
+  vin text primary key check (vin ~ '^[A-HJ-NPR-Z0-9]{17}$'),
+  found boolean not null,
+  data jsonb,
+  source text not null default '',
+  fetched_at timestamptz not null default now()
+);
+
+create index if not exists vin_cache_fetched_at_idx on public.vin_cache (fetched_at);
+
+alter table public.vin_cache enable row level security;

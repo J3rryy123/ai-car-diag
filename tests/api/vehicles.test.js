@@ -105,6 +105,17 @@ describe('Fahrzeuge speichern', () => {
     expect(fake.current.state.vehicles.at(-1).created_by_id).toBe(ids.anna);
   });
 
+  it('speichert Notiz sowie ermittelte Modell- und Motordaten und liefert sie wieder aus', async () => {
+    const anna = await login('anna');
+    const vinData = { model: { series: 'Passat' }, engine: { displacement: '2.0 L', fuelType: 'Diesel', power: '110 kW' } };
+    const res = await call(vehiclesApi, { headers: anna, body: { vin: VIN2, make: 'VW', note: 'Kunde wartet', vinData, registration: { hsn: '0603' } } });
+    expect(res.statusCode).toBe(201);
+    expect(res.body.vehicle).toMatchObject({ note: 'Kunde wartet', vinData, registration: { hsn: '0603' } });
+    const list = await call(vehiclesApi, { method: 'GET', headers: anna, query: { vin: VIN2 } });
+    expect(list.body.vehicles[0].vinData).toEqual(vinData);
+    expect((await call(vehiclesApi, { headers: anna, body: { vin: VIN, vinData: { x: 'a'.repeat(60 * 1024) } } })).statusCode).toBe(400);
+  });
+
   it('aktualisiert den eigenen Eintrag zur selben VIN statt ein Duplikat anzulegen', async () => {
     const anna = await login('anna');
     const res = await call(vehiclesApi, { headers: anna, body: { vin: VIN, make: 'BMW', model: '530d', customer: 'Schulz' } });

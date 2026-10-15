@@ -43,7 +43,7 @@ Rollen: *Administrator* (inkl. Benutzerverwaltung) und *Mitarbeiter*. Mitarbeite
 
 ## Fahrzeugspeicher (VIN & Fahrzeugdaten)
 
-Fahrgestellnummer und Fahrzeugdaten (Marke, Modell, Baujahr, Motortyp, Kennzeichen, Kunde und – falls gescannt – die Fahrzeugschein-Daten) lassen sich in der Datenbank ablegen und später schnell wieder aufrufen.
+Fahrgestellnummer und Fahrzeugdaten (Marke, Modell, Baujahr, Motortyp – automatisch erkannt oder manuell eingetragen, in beiden Tabs –, Kennzeichen, Kunde, Notiz, ermittelte Motordaten und – falls gescannt – die Fahrzeugschein-Daten) lassen sich in der Datenbank ablegen und später schnell wieder aufrufen.
 
 - **Speichern**: Sobald im Diagnose- oder OBD2-Tab eine gültige 17-stellige VIN eingegeben ist, erscheint unter dem VIN-Feld „Fahrzeug speichern“ (optional mit Kennzeichen und Kunde). Erneutes Speichern derselben VIN aktualisiert den vorhandenen Eintrag, es entstehen keine Duplikate.
 - **Abrufen**: „Gespeicherte Fahrzeuge“ unter dem VIN-Feld mit Suche nach VIN, Kennzeichen, Kunde, Marke oder Modell. „Übernehmen“ füllt das Formular (inkl. Fahrzeugschein-Daten) ohne erneute Abfrage; ist die VIN bereits gespeichert, bietet die App das direkt an.

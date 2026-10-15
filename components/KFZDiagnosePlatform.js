@@ -10,6 +10,7 @@ import PrintReport from './PrintReport';
 import VehicleHistory from './VehicleHistory';
 import SavedVehicles from './SavedVehicles';
 import { addCase } from '../utils/caseHistory';
+import { pickVinData } from '../utils/vehicleStore';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
 
 const NAV_ITEMS = [
@@ -140,6 +141,7 @@ const KFZDiagnosePlatform = () => {
   // OBD2 Tab States
   const [obdVin, setObdVin] = useState('');
   const [obdRegistration, setObdRegistration] = useState(null);
+  const [obdCarDetails, setObdCarDetails] = useState({ make: '', model: '', year: '', engineType: '' });
   const [obdVinDecoded, setObdVinDecoded] = useState(null);
   const [obdCode, setObdCode] = useState('');
   const [obdCodeDecoded, setObdCodeDecoded] = useState(null);
@@ -235,7 +237,20 @@ const KFZDiagnosePlatform = () => {
     }
     const decoded = VIN_DECODER.decodeVIN(cleaned);
     setObdVinDecoded(decoded);
-    if (decoded?.isValid) enrichVin('obd', cleaned, decoded, setObdVinDecoded);
+    if (!decoded?.isValid) return;
+    // Nur sicher erkannte Werte übernehmen; manuell eingetragene Angaben bleiben sonst erhalten
+    setObdCarDetails(prev => ({
+      ...prev,
+      make: decoded.manufacturer?.name || prev.make,
+      year: decoded.year?.modelYear ? String(decoded.year.modelYear) : prev.year
+    }));
+    enrichVin('obd', cleaned, decoded, setObdVinDecoded, (merged) => {
+      setObdCarDetails(prev => ({
+        ...prev,
+        model: merged.model?.series || prev.model,
+        engineType: FORM_FUELS[merged.engine?.fuelType] || prev.engineType
+      }));
+    });
   };
 
   // Technische Daten aus dem Fahrzeugschein, die in die KI-Diagnose einfließen
@@ -268,6 +283,13 @@ const KFZDiagnosePlatform = () => {
   const applyObdRegistration = (fields) => {
     if (fields.vin) handleObdVinChange(fields.vin);
     setObdRegistration(pickRegistration(fields));
+    setObdCarDetails(prev => ({
+      ...prev,
+      make: fields.make || prev.make,
+      model: fields.model || fields.type || prev.model,
+      year: fields.firstRegistrationYear ? String(fields.firstRegistrationYear) : prev.year,
+      engineType: FORM_FUELS[fields.fuel] || prev.engineType
+    }));
   };
 
   // OBD2 Code Decoder
@@ -428,12 +450,16 @@ const KFZDiagnosePlatform = () => {
 
   // Gespeichertes Fahrzeug (Fahrzeugspeicher) ins Formular übernehmen; die gespeicherten Daten gelten, kein erneutes Nachladen
   const loadSavedVehicle = (v, target) => {
+    const restore = (decoded) => (v.vinData ? { ...decoded, ...v.vinData, lookup: 'done' } : decoded);
     if (target === 'obd') {
       handleObdVinChange(v.vin);
       setObdRegistration(v.registration || null);
+      setObdCarDetails({ make: v.make, model: v.model, year: v.year, engineType: v.engineType });
+      if (v.vinData) setObdVinDecoded(prev => (prev?.isValid ? restore(prev) : prev));
       return;
     }
     handleVinChange(v.vin, { keepForm: true });
+    if (v.vinData) setVinDecoded(prev => (prev?.isValid ? restore(prev) : prev));
     setCarDetails(prev => ({
       ...prev,
       make: v.make,
@@ -465,6 +491,7 @@ const KFZDiagnosePlatform = () => {
       setGuidedKey(k => k + 1);
       setActiveTab('guided');
     } else if (c.type === 'obd2') {
+      setObdCarDetails({ make: '', model: '', year: '', engineType: '' });
       handleObdVinChange(c.vin || '');
       setObdRegistration(null);
       handleObdCodeChange(c.code || '');
@@ -693,9 +720,9 @@ const KFZDiagnosePlatform = () => {
             type="obd2"
             result={obdResults}
             vehicle={{
-              make: obdRegistration?.make || obdVinDecoded?.manufacturer?.name,
-              model: obdRegistration?.model,
-              year: obdRegistration?.firstRegistration?.slice(0, 4) || obdVinDecoded?.year?.modelYear,
+              make: obdCarDetails.make || obdRegistration?.make || obdVinDecoded?.manufacturer?.name,
+              model: obdCarDetails.model || obdRegistration?.model,
+              year: obdCarDetails.year || obdRegistration?.firstRegistration?.slice(0, 4) || obdVinDecoded?.year?.modelYear,
               vin: VIN_DECODER.cleanVIN(obdVin),
               registration: obdRegistration
             }}
@@ -794,7 +821,8 @@ const KFZDiagnosePlatform = () => {
                       model: carDetails.model,
                       year: carDetails.year,
                       engineType: carDetails.engineType,
-                      registration: carDetails.registration || null
+                      registration: carDetails.registration || null,
+                      vinData: pickVinData(vinDecoded)
                     }}
                     onLoad={(v) => loadSavedVehicle(v, 'diagnose')}
                     styles={styles}
@@ -945,14 +973,36 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
                   />
                   
                   <VinInfo decoded={obdVinDecoded} styles={styles} />
+                  <div className={styles.carDetailsGrid} style={{ marginTop: '0.75rem' }}>
+                    <div className={styles.formGroup}>
+                      <label className={styles.label}>Marke</label>
+                      <input type="text" value={obdCarDetails.make} onChange={(e) => setObdCarDetails({ ...obdCarDetails, make: e.target.value })} className={styles.input} placeholder="z.B. BMW" />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label className={styles.label}>Modell</label>
+                      <input type="text" value={obdCarDetails.model} onChange={(e) => setObdCarDetails({ ...obdCarDetails, model: e.target.value })} className={styles.input} placeholder="z.B. 3er" />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label className={styles.label}>Baujahr</label>
+                      <input type="text" value={obdCarDetails.year} onChange={(e) => setObdCarDetails({ ...obdCarDetails, year: e.target.value })} className={styles.input} placeholder="z.B. 2020" />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label className={styles.label}>Motortyp</label>
+                      <select value={obdCarDetails.engineType} onChange={(e) => setObdCarDetails({ ...obdCarDetails, engineType: e.target.value })} className={styles.input}>
+                        <option value="">Bitte wählen</option>
+                        <option value="benzin">Benzin</option>
+                        <option value="diesel">Diesel</option>
+                        <option value="hybrid">Hybrid</option>
+                        <option value="elektro">Elektro</option>
+                      </select>
+                    </div>
+                  </div>
                   <SavedVehicles
                     current={{
                       vin: VIN_DECODER.cleanVIN(obdVin),
-                      make: obdRegistration?.make || obdVinDecoded?.manufacturer?.name || '',
-                      model: obdRegistration?.model || obdVinDecoded?.model?.series || '',
-                      year: obdRegistration?.firstRegistration?.slice(0, 4) || obdVinDecoded?.year?.modelYear || '',
-                      engineType: '',
-                      registration: obdRegistration || null
+                      ...obdCarDetails,
+                      registration: obdRegistration || null,
+                      vinData: pickVinData(obdVinDecoded)
                     }}
                     onLoad={(v) => loadSavedVehicle(v, 'obd')}
                     styles={styles}

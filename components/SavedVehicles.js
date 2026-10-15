@@ -5,13 +5,14 @@ const formatDate = (iso) => (iso ? new Date(iso).toLocaleDateString('de-DE', { d
 const title = (v) => [v.make, v.model, v.year].filter(Boolean).join(' ') || 'Fahrzeug';
 
 // Fahrzeugspeicher unter dem VIN-Feld: aktuelles Fahrzeug speichern und gespeicherte Fahrzeuge schnell wieder aufrufen.
-// current: { vin, make, model, year, engineType, registration } aus dem Formular; onLoad(vehicle) übernimmt ein Fahrzeug ins Formular.
+// current: { vin, make, model, year, engineType, registration, vinData } aus dem Formular; onLoad(vehicle) übernimmt ein Fahrzeug ins Formular.
 export default function SavedVehicles({ current, onLoad, styles }) {
   const [vehicles, setVehicles] = useState([]);
   const [storage, setStorage] = useState('database');
   const [query, setQuery] = useState('');
   const [licensePlate, setLicensePlate] = useState('');
   const [customer, setCustomer] = useState('');
+  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -37,6 +38,7 @@ export default function SavedVehicles({ current, onLoad, styles }) {
   useEffect(() => {
     setLicensePlate(saved?.licensePlate || '');
     setCustomer(saved?.customer || '');
+    setNote(saved?.note || '');
   }, [saved?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
@@ -48,7 +50,7 @@ export default function SavedVehicles({ current, onLoad, styles }) {
         vin,
         licensePlate: licensePlate || saved?.licensePlate || '',
         customer: customer || saved?.customer || '',
-        note: saved?.note || ''
+        note
       });
       setMessage({ ok: true, text: created ? 'Fahrzeug gespeichert.' : 'Fahrzeug aktualisiert.' });
       await reload();
@@ -98,6 +100,16 @@ export default function SavedVehicles({ current, onLoad, styles }) {
               aria-label="Kunde"
             />
           </div>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className={styles.textarea}
+            style={{ marginTop: '0.5rem' }}
+            rows={2}
+            placeholder="Notiz zum Fahrzeug (optional)"
+            maxLength={5000}
+            aria-label="Notiz"
+          />
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
             {saved && (
               <button type="button" className={styles.button} style={{ width: 'auto' }} onClick={() => onLoad(saved)}>
@@ -140,6 +152,11 @@ export default function SavedVehicles({ current, onLoad, styles }) {
                   </span>
                 </div>
                 <div className={styles.causeMeta}><span style={{ fontFamily: 'monospace' }}>{v.vin}</span></div>
+                {(v.engineType || v.vinData?.engine) && (
+                  <p style={{ marginTop: '0.3rem', fontSize: '0.9rem', color: '#9ca3af' }}>
+                    {[v.engineType, v.vinData?.engine?.displacement, v.vinData?.engine?.power].filter(Boolean).join(' · ')}
+                  </p>
+                )}
                 {(v.licensePlate || v.customer) && (
                   <p style={{ marginTop: '0.3rem', fontSize: '0.9rem' }}>
                     {[v.licensePlate, v.customer].filter(Boolean).join(' · ')}

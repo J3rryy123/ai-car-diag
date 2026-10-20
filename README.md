@@ -45,11 +45,30 @@ Rollen: *Administrator* (inkl. Benutzerverwaltung) und *Mitarbeiter*. Mitarbeite
 
 Fahrgestellnummer und Fahrzeugdaten (Marke, Modell, Baujahr, Motortyp – automatisch erkannt oder manuell eingetragen, in beiden Tabs –, Kennzeichen, Kunde, Notiz, ermittelte Motordaten und – falls gescannt – die Fahrzeugschein-Daten) lassen sich in der Datenbank ablegen und später schnell wieder aufrufen.
 
-- **HSN/TSN**: Unter den Fahrzeugfeldern (Diagnose- und OBD2-Tab) lassen sich die Herstellerschlüsselnummer (Fahrzeugschein Feld 2.1, 4 Zeichen) und Typschlüsselnummer (Feld 2.2, 3 Zeichen) auch ohne Foto-Scan von Hand eintragen. Sie fließen in die KI-Analyse ein (zur genaueren Modell-/Motoridentifikation), werden im Fahrzeugspeicher gesichert, erscheinen im Druckbericht und sind in der Fahrzeugsuche auffindbar. Ein Scan füllt die Felder automatisch. Die App enthält keine eigene HSN/TSN-Datenbank; die Zuordnung zu Marke und Modell übernimmt die KI.
+- **HSN/TSN**: Unter den Fahrzeugfeldern (Diagnose- und OBD2-Tab) lassen sich die Herstellerschlüsselnummer (Fahrzeugschein Feld 2.1, 4 Zeichen) und Typschlüsselnummer (Feld 2.2, 3 Zeichen) auch ohne Foto-Scan von Hand eintragen. Sie fließen in die KI-Analyse ein (zur genaueren Modell-/Motoridentifikation), werden im Fahrzeugspeicher gesichert, erscheinen im Druckbericht und sind in der Fahrzeugsuche auffindbar. Ein Scan füllt die Felder automatisch. Mit dem KBA-Schlüsselverzeichnis (siehe unten) werden Hersteller und Handelsname automatisch zugeordnet, sonst übernimmt die KI die Zuordnung.
 - **Speichern**: Sobald im Diagnose- oder OBD2-Tab eine gültige 17-stellige VIN eingegeben ist, erscheint unter dem VIN-Feld „Fahrzeug speichern“ (optional mit Kennzeichen und Kunde). Erneutes Speichern derselben VIN aktualisiert den vorhandenen Eintrag, es entstehen keine Duplikate.
 - **Abrufen**: „Gespeicherte Fahrzeuge“ unter dem VIN-Feld mit Suche nach VIN, Kennzeichen, Kunde, Marke oder Modell. „Übernehmen“ füllt das Formular (inkl. Fahrzeugschein-Daten) ohne erneute Abfrage; ist die VIN bereits gespeichert, bietet die App das direkt an.
 - **Sichtbarkeit**: wie bei den Fällen – Mitarbeiter und Abonnenten sehen nur eigene Fahrzeuge, Administratoren alle. Beim Löschen eines Abo-Kontos werden dessen Fahrzeuge mit entfernt.
 - **Technik**: Tabelle `vehicles` (eindeutig je Benutzer und VIN), API `GET/POST /api/vehicles`, `PATCH/DELETE /api/vehicles/<id>`. Dafür `supabase/schema.sql` (erneut) ausführen. Ohne Datenbank speichert die App im Browser (nur dieses Gerät).
+
+## KBA-Schlüsselverzeichnis (HSN/TSN-Erkennung)
+
+Mit dem amtlichen Schlüsselverzeichnis des Kraftfahrt-Bundesamts (Statistik **FZ 6.1**, „Bestand an Kraftfahrzeugen und Kraftfahrzeuganhängern nach Herstellern und Typen“) ordnet die App einer eingegebenen **HSN** den Hersteller und **HSN + TSN** den Handelsnamen zu (Stand der Datei: 1. Januar 2024, rund 61.000 Typen). Das Ergebnis erscheint unter den HSN/TSN-Feldern, füllt leere Felder für Marke und Modell vor und geht als gesicherte Angabe in die KI-Analyse ein. Es liefert keinen Motor und kein Baujahr; Typen, die erst nach dem Stichtag zugelassen wurden, fehlen. Die Daten liegen in der Supabase-Tabelle `kba_types`, ohne Datenbank bleibt alles wie bisher.
+
+**Einrichten und jährlich aktualisieren**
+
+1. `supabase/schema.sql` (erneut) ausführen – legt die Tabelle `kba_types` an.
+2. Die aktuelle Datei **FZ 6** (Excel) von der [KBA-Seite „Liste der Hersteller und Typschlüsselnummern“](https://www.kba.de/DE/Statistik/Fahrzeuge/Bestand/ListeHerstellerTypSchluesselnummern/typschluesselnummern_node.html) herunterladen.
+3. Importieren (`SUPABASE_URL` und `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`; Node 20.6 oder neuer):
+
+```bash
+npm run import:kba -- ./fz6_2024.xlsx --dry-run    # Probelauf: zeigt nur Anzahl und Stichtag
+node --env-file=.env.local scripts/import-kba.mjs ./fz6_2024.xlsx
+```
+
+Der Import legt neue Typen an und aktualisiert vorhandene (Stichtag wird aus der Datei gelesen, alternativ `--stand JJJJ-MM-TT`); nicht mehr gelistete Typen bleiben erhalten. Er lässt sich beliebig oft wiederholen.
+
+**Lizenz**: © Kraftfahrt-Bundesamt, Flensburg, [Datenlizenz Deutschland – Namensnennung – Version 2.0](https://www.govdata.de/dl-de/by-2-0). Der Quellenhinweis wird in der Oberfläche unter dem Ergebnis angezeigt und muss erhalten bleiben.
 
 ## Abomodell (Selbstregistrierung)
 

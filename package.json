@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "import:kba": "node scripts/import-kba.mjs"
   },
   "dependencies": {
     "next": "^14.2.32",
@@ -22,6 +23,7 @@
     "eslint": "^8",
     "eslint-config-next": "^14.2.35",
     "postcss": "^8.5.6",
+    "read-excel-file": "^5.8.8",
     "tailwindcss": "^3.4.0",
     "typescript": "^5",
     "vitest": "^2.1.9"

@@ -2,6 +2,7 @@ import { requireAuth } from '../../utils/server/auth';
 import { callClaude } from '../../utils/server/claude';
 import { clientIp, createRateLimiter } from '../../utils/server/rateLimit';
 import { db, dbConfigured } from '../../utils/server/supabase';
+import { lookupKba } from '../../utils/server/kba';
 import { ownOnly } from '../../utils/server/caseMapping';
 import { reserveRequest, releaseRequest, quotaExceeded } from '../../utils/server/quota';
 
@@ -177,6 +178,18 @@ function cleanRegistration(raw, vin) {
   return Object.values(reg).some((v) => v !== null) ? reg : null;
 }
 
+// Ergänzt HSN/TSN um Hersteller und Handelsname aus dem KBA-Schlüsselverzeichnis (Supabase). Fehler blockieren die Analyse nie.
+async function withKba(reg) {
+  if (!reg?.hsn) return reg;
+  try {
+    const kba = await lookupKba(reg.hsn, reg.tsn);
+    return kba.found ? { ...reg, kba } : reg;
+  } catch (error) {
+    console.warn('KBA-Verzeichnis nicht verfügbar:', error.message);
+    return reg;
+  }
+}
+
 // Zeilen für den Prompt; leer, wenn nichts bekannt ist
 function describeRegistration(reg) {
   if (!reg) return '';
@@ -186,8 +199,12 @@ function describeRegistration(reg) {
   if (reg.powerKw) lines.push(`- Power: ${reg.powerKw} kW (${reg.powerPs} PS)`);
   if (reg.fuel) lines.push(`- Fuel (registration): ${reg.fuel}`);
   if (reg.hsn && reg.tsn) lines.push(`- German HSN/TSN: ${reg.hsn}/${reg.tsn}`);
-  // Nur HSN/TSN bekannt (manuell eingegeben): zur genauen Modell-/Motor-Identifikation nutzen, ohne zu raten
-  if (reg.hsn && reg.tsn && !reg.make && !reg.model) {
+  if (reg.kba) {
+    const { manufacturer, tradeName, stand } = reg.kba;
+    lines.push(`- KBA key directory${stand ? ` (official, as of ${stand})` : ''}: manufacturer for HSN ${reg.hsn} = ${clean(manufacturer, 100)}${tradeName ? `; trade name for TSN ${reg.tsn} = ${clean(tradeName, 200)}` : ''}`);
+  }
+  // Nur HSN/TSN bekannt (manuell eingegeben) und nicht im Verzeichnis: zur Modell-/Motor-Identifikation nutzen, ohne zu raten
+  if (reg.hsn && reg.tsn && !reg.make && !reg.model && !reg.kba?.tradeName) {
     lines.push('- HSN/TSN identify the exact German vehicle type (make, model, engine variant). Use them to narrow down the model and engine, but state clearly if you cannot identify them with certainty instead of guessing.');
   }
   if (reg.type) lines.push(`- Type/Variant (D.2): ${reg.type}`);
@@ -371,7 +388,7 @@ export default async function handler(req, res) {
     }
     const obdVin = VIN_PATTERN.test(clean(body.obdVin, 17).toUpperCase()) ? clean(body.obdVin, 17).toUpperCase() : null;
     const obdVinDecoded = obdVin ? body.obdVinDecoded : null;
-    const registration = cleanRegistration(body.registration, obdVin);
+    const registration = await withKba(cleanRegistration(body.registration, obdVin));
 
     return respond(res, debug, debugAllowed, session, {
       tool: OBD_TOOL,
@@ -395,7 +412,7 @@ export default async function handler(req, res) {
   }
   const vin = VIN_PATTERN.test(clean(body.vin, 17).toUpperCase()) ? clean(body.vin, 17).toUpperCase() : null;
   const vinDecoded = vin ? body.vinDecoded : null;
-  const registration = cleanRegistration(body.carDetails?.registration, vin);
+  const registration = await withKba(cleanRegistration(body.carDetails?.registration, vin));
 
   return respond(res, debug, debugAllowed, session, {
     tool: DIAGNOSE_TOOL,

@@ -882,6 +882,7 @@ const KFZDiagnosePlatform = () => {
                 <HsnTsnFields
                   registration={carDetails.registration}
                   onChange={(registration) => setCarDetails(prev => (({ registration: _r, ...rest }) => (registration ? { ...rest, registration } : rest))(prev))}
+                  onLookup={(kba) => setCarDetails(prev => ({ ...prev, make: prev.make || kba.make, model: prev.model || kba.model }))}
                   styles={styles}
                 />
 
@@ -1004,7 +1005,12 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
                       </select>
                     </div>
                   </div>
-                  <HsnTsnFields registration={obdRegistration} onChange={setObdRegistration} styles={styles} />
+                  <HsnTsnFields
+                    registration={obdRegistration}
+                    onChange={setObdRegistration}
+                    onLookup={(kba) => setObdCarDetails(prev => ({ ...prev, make: prev.make || kba.make, model: prev.model || kba.model }))}
+                    styles={styles}
+                  />
                   <SavedVehicles
                     current={{
                       vin: VIN_DECODER.cleanVIN(obdVin),

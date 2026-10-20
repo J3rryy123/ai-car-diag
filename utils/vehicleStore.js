@@ -89,12 +89,12 @@ export async function deleteVehicle(id, storage) {
   saveLocal(loadLocal().filter((v) => v.id !== id));
 }
 
-/** Filtert nach VIN, Kennzeichen, Kunde, Marke, Modell oder Notiz. */
+/** Filtert nach VIN, Kennzeichen, Kunde, Marke, Modell, HSN/TSN oder Notiz. */
 export function searchVehicles(vehicles, query) {
   const q = query.trim().toLowerCase().replace(/\s+/g, ' ');
   if (!q) return vehicles;
   return vehicles.filter((v) =>
-    [v.vin, v.licensePlate, v.customer, v.make, v.model, v.year, v.note]
+    [v.vin, v.licensePlate, v.customer, v.make, v.model, v.year, v.note, v.registration?.hsn, v.registration?.tsn]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(q))
   );

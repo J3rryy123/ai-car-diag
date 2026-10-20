@@ -186,6 +186,10 @@ function describeRegistration(reg) {
   if (reg.powerKw) lines.push(`- Power: ${reg.powerKw} kW (${reg.powerPs} PS)`);
   if (reg.fuel) lines.push(`- Fuel (registration): ${reg.fuel}`);
   if (reg.hsn && reg.tsn) lines.push(`- German HSN/TSN: ${reg.hsn}/${reg.tsn}`);
+  // Nur HSN/TSN bekannt (manuell eingegeben): zur genauen Modell-/Motor-Identifikation nutzen, ohne zu raten
+  if (reg.hsn && reg.tsn && !reg.make && !reg.model) {
+    lines.push('- HSN/TSN identify the exact German vehicle type (make, model, engine variant). Use them to narrow down the model and engine, but state clearly if you cannot identify them with certainty instead of guessing.');
+  }
   if (reg.type) lines.push(`- Type/Variant (D.2): ${reg.type}`);
   if (reg.firstRegistration) lines.push(`- First registration: ${reg.firstRegistration}`);
   return lines.length ? `Registration document data (read from the vehicle registration, reliable):\n${lines.join('\n')}\n` : '';

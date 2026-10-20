@@ -138,7 +138,7 @@ export default function SavedVehicles({ current, onLoad, styles }) {
             onChange={(e) => setQuery(e.target.value)}
             className={styles.input}
             style={{ marginTop: '0.5rem' }}
-            placeholder="Suchen: VIN, Kennzeichen, Kunde, Marke …"
+            placeholder="Suchen: VIN, Kennzeichen, Kunde, Marke, HSN …"
             aria-label="Gespeicherte Fahrzeuge durchsuchen"
           />
           <div style={{ display: 'grid', gap: '0.5rem', marginTop: '0.5rem', maxHeight: 360, overflowY: 'auto' }}>
@@ -156,6 +156,9 @@ export default function SavedVehicles({ current, onLoad, styles }) {
                   <p style={{ marginTop: '0.3rem', fontSize: '0.9rem', color: '#9ca3af' }}>
                     {[v.engineType, v.vinData?.engine?.displacement, v.vinData?.engine?.power].filter(Boolean).join(' · ')}
                   </p>
+                )}
+                {v.registration?.hsn && v.registration?.tsn && (
+                  <p style={{ marginTop: '0.3rem', fontSize: '0.9rem', color: '#9ca3af' }}>HSN/TSN {v.registration.hsn}/{v.registration.tsn}</p>
                 )}
                 {(v.licensePlate || v.customer) && (
                   <p style={{ marginTop: '0.3rem', fontSize: '0.9rem' }}>

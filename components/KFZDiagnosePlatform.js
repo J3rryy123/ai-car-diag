@@ -9,6 +9,7 @@ import MultiCodeAnalysis from './MultiCodeAnalysis';
 import PrintReport from './PrintReport';
 import VehicleHistory from './VehicleHistory';
 import SavedVehicles from './SavedVehicles';
+import HsnTsnFields from './HsnTsnFields';
 import { addCase } from '../utils/caseHistory';
 import { pickVinData } from '../utils/vehicleStore';
 import styles from '../styles/KFZDiagnosePlatform.module.css';
@@ -878,6 +879,12 @@ const KFZDiagnosePlatform = () => {
                   </div>
                 </div>
 
+                <HsnTsnFields
+                  registration={carDetails.registration}
+                  onChange={(registration) => setCarDetails(prev => (({ registration: _r, ...rest }) => (registration ? { ...rest, registration } : rest))(prev))}
+                  styles={styles}
+                />
+
                 {/* Problem Description */}
                 <div className={styles.formGroup}>
                   <label className={styles.label}>Problembeschreibung</label>
@@ -997,6 +1004,7 @@ Z.B: Das Fahrzeug macht beim Starten ein klickendes Geräusch, aber der Motor sp
                       </select>
                     </div>
                   </div>
+                  <HsnTsnFields registration={obdRegistration} onChange={setObdRegistration} styles={styles} />
                   <SavedVehicles
                     current={{
                       vin: VIN_DECODER.cleanVIN(obdVin),

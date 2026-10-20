@@ -159,3 +159,18 @@ create index if not exists vehicles_vin_idx on public.vehicles (vin);
 create index if not exists vehicles_updated_at_idx on public.vehicles (updated_at desc);
 
 alter table public.vehicles enable row level security;
+
+-- KBA-Schlüsselverzeichnis (Statistik FZ 6.1 "Bestand nach Herstellern und Typen"): ordnet HSN/TSN Hersteller und Handelsname zu.
+-- Quelle: © Kraftfahrt-Bundesamt, Flensburg, Datenlizenz Deutschland – Namensnennung – Version 2.0.
+-- Befüllen und jährlich aktualisieren: npm run import:kba -- <FZ6-Datei.xlsx> (siehe README).
+create table if not exists public.kba_types (
+  hsn text not null check (hsn ~ '^[0-9A-Z]{4}$'),
+  tsn text not null check (tsn ~ '^[0-9A-Z]{3}$'),
+  manufacturer text not null,
+  trade_name text not null default '',
+  stock integer not null default 0,
+  stand date,
+  primary key (hsn, tsn)
+);
+
+alter table public.kba_types enable row level security;
